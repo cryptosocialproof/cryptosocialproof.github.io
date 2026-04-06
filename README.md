@@ -1,10 +1,10 @@
-# CryptoProof
+# CryptoSocialProof
 
 Generate a shareable receipt image from any Solana DEX swap — attach your own photo and the transaction details are pulled directly from the blockchain.
 
 ## What it does
 
-Upload a photo, paste a Solana transaction signature, and CryptoProof will:
+Upload a photo, paste a Solana transaction signature, and CryptoSocialProof will:
 
 1. Fetch the swap data from the Solana blockchain (no API key required)
 2. Resolve token names and logos automatically
