@@ -637,9 +637,9 @@
 // ═══════════════════════════════════════════
 
 const RPC_ENDPOINTS = [
-  'https://api.mainnet-beta.solana.com',
   'https://solana-rpc.publicnode.com',
   'https://mainnet.sonic.game/',
+  'https://api.mainnet-beta.solana.com',
 ];
 
 const KNOWN_TOKENS = {
@@ -716,6 +716,7 @@ async function rpcCall(method, params) {
   for (const endpoint of RPC_ENDPOINTS) {
     try {
       const res  = await fetchWithTimeout(endpoint, opts, 15000);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(`RPC error: ${json.error.message || JSON.stringify(json.error)}`);
       return json;
