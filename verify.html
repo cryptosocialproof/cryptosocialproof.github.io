@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Card — CryptoSocialProof</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f4f5f7;
+      color: #111;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 60px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #111;
+      margin-bottom: 4px;
+    }
+    .header h1 span { color: #6366f1; }
+    .header h1 a { text-decoration: none; color: inherit; }
+    .header p { color: #888; font-size: 13px; }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 36px 32px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .icon {
+      font-size: 52px;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    .ok .icon  { color: #22c55e; }
+    .err .icon { color: #ef4444; }
+
+    .status {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .ok  .status { color: #16a34a; }
+    .err .status { color: #dc2626; }
+
+    .desc {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 5px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      background: rgba(99,102,241,0.1);
+      margin-bottom: 20px;
+    }
+
+    .details {
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 13px;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .dk { color: #9ca3af; font-weight: 600; }
+    .dv { font-weight: 700; color: #111; }
+    .dv.green { color: #16a34a; }
+    .dv.red   { color: #dc2626; }
+
+    .note {
+      font-size: 12px;
+      color: #9ca3af;
+      line-height: 1.5;
+      border-top: 1px solid #f0f0f0;
+      padding-top: 16px;
+      margin-top: 4px;
+    }
+
+    .loading {
+      color: #9ca3af;
+      font-size: 14px;
+      margin-top: 40px;
+    }
+
+    .back-link {
+      margin-top: 20px;
+      font-size: 13px;
+      color: #6366f1;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1><a href="index.html">Crypto<span>Social</span>Proof</a></h1>
+  <p>Card Verification</p>
+</div>
+
+<div id="result">
+  <div class="loading">Verifying…</div>
+</div>
+
+<a class="back-link" href="index.html">← Generate a card</a>
+
+<script>
+  const HMAC_KEY_MATERIAL = 'csp-v1-social-proof';
+
+  function b64urlDecode(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    const bin = atob(s);
+    return Uint8Array.from(bin, c => c.charCodeAt(0));
+  }
+
+  function b64url(buf) {
+    return btoa(String.fromCharCode(...new Uint8Array(buf)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  function showInvalid(msg) {
+    document.getElementById('result').innerHTML = `
+      <div class="card err">
+        <div class="icon">✗</div>
+        <div class="status">Not Verified</div>
+        <div class="desc">${msg}</div>
+      </div>`;
+  }
+
+  function showVerified(payload) {
+    const typeColors = {
+      SWAP: '#818cf8', BUY: '#22c55e', SELL: '#ef4444',
+      SEND: '#ef4444', RECEIVE: '#22c55e', STAKE: '#c084fc'
+    };
+    const typeColor = typeColors[payload.t] || '#9ca3af';
+
+    let detailsHtml = '';
+    if (payload.t === 'SWAP' && payload.p && payload.s) {
+      detailsHtml = `
+        <div class="detail-row"><span class="dk">Sold</span><span class="dv red">${payload.p}</span></div>
+        <div class="detail-row"><span class="dk">Received</span><span class="dv green">${payload.s}</span></div>`;
+    } else if (payload.p) {
+      const isIncoming = ['BUY','RECEIVE','STAKE'].includes(payload.t);
+      detailsHtml = `
+        <div class="detail-row"><span class="dk">Amount</span><span class="dv ${isIncoming ? 'green' : 'red'}">${payload.p}</span></div>`;
+    }
+
+    document.getElementById('result').innerHTML = `
+      <div class="card ok">
+        <div class="icon">✓</div>
+        <div class="status">Verified</div>
+        <div class="desc">This card was generated by CryptoSocialProof</div>
+        <div class="badge" style="color:${typeColor};border:1px solid ${typeColor}40">${payload.t}</div>
+        ${detailsHtml || payload.p ? `<div class="details">${detailsHtml}
+          ${payload.d ? `<div class="detail-row"><span class="dk">Date</span><span class="dv">${payload.d}</span></div>` : ''}
+        </div>` : ''}
+        <div class="note">This confirms the card was created by this tool from a real parsed transaction. The underlying transaction and wallet address remain private.</div>
+      </div>`;
+  }
+
+  async function verifyCard() {
+    const hash = window.location.hash.slice(1);
+    if (!hash) {
+      showInvalid('No verification data found. Please scan or open the full QR code link.');
+      return;
+    }
+
+    const dot = hash.lastIndexOf('.');
+    if (dot === -1) {
+      showInvalid('Malformed verification link.');
+      return;
+    }
+
+    const payloadB64 = hash.slice(0, dot);
+    const hmacB64    = hash.slice(dot + 1);
+
+    let json;
+    try {
+      const payloadBytes = b64urlDecode(payloadB64);
+      json = new TextDecoder().decode(payloadBytes);
+    } catch (e) {
+      showInvalid('Could not decode verification data.');
+      return;
+    }
+
+    let key;
+    try {
+      const enc = new TextEncoder();
+      key = await crypto.subtle.importKey(
+        'raw', enc.encode(HMAC_KEY_MATERIAL),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false, ['sign']
+      );
+      const sigBuf   = await crypto.subtle.sign('HMAC', key, enc.encode(json));
+      const expected = b64url(sigBuf);
+
+      if (hmacB64 !== expected) {
+        showInvalid('Verification failed — this card may have been tampered with or was not generated by CryptoSocialProof.');
+        return;
+      }
+    } catch (e) {
+      showInvalid('Your browser does not support the verification algorithm. Please try a modern browser.');
+      return;
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(json);
+    } catch (e) {
+      showInvalid('Could not parse verification data.');
+      return;
+    }
+
+    showVerified(payload);
+  }
+
+  verifyCard();
+</script>
+</body>
+</html>

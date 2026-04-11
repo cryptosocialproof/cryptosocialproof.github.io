@@ -65,7 +65,8 @@
       user-select: none;
     }
     .prog-step.active { background: #6366f1; color: white; }
-    .prog-step.done   { color: #6366f1; }
+    .prog-step.done   { color: #6366f1; cursor: pointer; }
+    .prog-step.done:hover { background: #eef2ff; }
 
     /* ---- Step panels ---- */
     .step-panel {
@@ -449,6 +450,37 @@
     .t-swap .swap-foot { display: flex; gap: 14px; margin-top: 18px; font-size: 11px; color: #1f2937; }
     .t-swap .csp-wm    { color: rgba(255,255,255,0.25); }
 
+    /* ---- Decimal selector ---- */
+    .dec-btns { display: flex; gap: 4px; }
+    .dec-btn {
+      padding: 3px 9px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #888;
+      cursor: pointer;
+      background: white;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .dec-btn:hover { border-color: #c7d2fe; color: #6366f1; }
+    .dec-btn.selected { border-color: #6366f1; color: #6366f1; background: #eef2ff; }
+
+    /* ---- QR Code badge ---- */
+    .card-qr {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 54px;
+      height: 54px;
+      background: white;
+      border-radius: 4px;
+      padding: 3px;
+      line-height: 0;
+    }
+    .card-qr svg { width: 100%; height: 100%; }
+    .t-receipt .card-qr { border: 1px solid #d1d5db; }
+
     /* ---- Mobile ---- */
     @media (max-width: 480px) {
       body { padding: 12px 10px 32px; }
@@ -457,6 +489,7 @@
       .card-preview-wrap { padding: 10px; }
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -508,7 +541,15 @@
       <p style="font-size:12px;color:#999">Review your transaction and set privacy preferences before generating your card.</p>
     </div>
 
-    <div class="section-title">Parsed Data</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="section-title" style="margin-bottom:0">Parsed Data</div>
+      <div class="dec-btns">
+        <button class="dec-btn" data-dec="2" onclick="selectDecimals(2)">2</button>
+        <button class="dec-btn selected" data-dec="4" onclick="selectDecimals(4)">4</button>
+        <button class="dec-btn" data-dec="6" onclick="selectDecimals(6)">6</button>
+        <button class="dec-btn" data-dec="9" onclick="selectDecimals(9)">Max</button>
+      </div>
+    </div>
     <div class="data-table" id="data-table"><!-- populated by JS --></div>
 
     <div class="section-title">Privacy</div>
@@ -516,7 +557,7 @@
       <div class="toggle-row">
         <span class="toggle-label">Show wallet address</span>
         <label class="toggle">
-          <input type="checkbox" id="tog-wallet" checked>
+          <input type="checkbox" id="tog-wallet">
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -524,13 +565,6 @@
         <span class="toggle-label">Show platform (e.g. Jupiter)</span>
         <label class="toggle">
           <input type="checkbox" id="tog-platform" checked>
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="toggle-row">
-        <span class="toggle-label">Approximate amounts (e.g. ~142M)</span>
-        <label class="toggle">
-          <input type="checkbox" id="tog-approx">
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -582,7 +616,6 @@
     </div>
 
     <div class="action-row">
-      <button class="sec-btn" onclick="goToStep(2)">← Back</button>
       <button class="dl-btn" onclick="exportCard()">⬇ Download PNG</button>
     </div>
   </div>
@@ -968,21 +1001,25 @@ async function parseTx(sig) {
 // ═══════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════
-let txData   = null;
-let selTheme = 'dark';
-let selSize  = 'square';
+let txData      = null;
+let selTheme    = 'dark';
+let selSize     = 'square';
+let selDecimals = 4;
+let maxStep     = 0;
 
 // ═══════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════
 function goToStep(n) {
+  maxStep = Math.max(maxStep, n);
   for (let i = 0; i < 4; i++) {
     document.getElementById(`step-${i}`).classList.toggle('hidden', i !== n);
     const p = document.getElementById(`prog-${i}`);
     p.classList.toggle('active', i === n);
-    p.classList.toggle('done', i < n);
+    p.classList.toggle('done', i !== n && i <= maxStep && i !== 1);
   }
   document.getElementById('reset-btn').classList.toggle('visible', n > 0);
+  if (n === 3 && txData) renderCardPreview();
 }
 
 function resetApp() {
@@ -992,42 +1029,91 @@ function resetApp() {
   inputError.classList.remove('visible');
   document.getElementById('data-table').innerHTML  = '';
   document.getElementById('card-preview').innerHTML = '';
-  document.getElementById('tog-wallet').checked   = true;
+  document.getElementById('tog-wallet').checked   = false;
   document.getElementById('tog-platform').checked = true;
-  document.getElementById('tog-approx').checked   = false;
-  selTheme = 'dark';
-  selSize  = 'square';
+  selTheme    = 'dark';
+  selSize     = 'square';
+  selDecimals = 4;
+  maxStep     = 0;
   document.querySelectorAll('.theme-opt').forEach(el => el.classList.toggle('selected', el.dataset.theme === 'dark'));
   document.querySelectorAll('.size-opt').forEach(el => el.classList.toggle('selected', el.dataset.size === 'square'));
+  document.querySelectorAll('.dec-btn').forEach(el => el.classList.toggle('selected', el.dataset.dec === '4'));
   goToStep(0);
 }
 
 // ═══════════════════════════════════════════
 //  FORMAT HELPERS
 // ═══════════════════════════════════════════
-function fmtAmt(n, approx) {
-  const a = Math.abs(n);
-  if (approx) {
-    if (a >= 1e9) return `~${(a/1e9).toFixed(1)}B`;
-    if (a >= 1e6) return `~${(a/1e6).toFixed(0)}M`;
-    if (a >= 1e3) return `~${(a/1e3).toFixed(0)}K`;
-    return `~${parseFloat(a.toFixed(4))}`;
-  }
-  if (a >= 1e9) return (a/1e9).toLocaleString('en-US', { maximumFractionDigits: 3 }) + 'B';
-  if (a >= 1e6) return (a/1e6).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'M';
-  if (a >= 1e3) return a.toLocaleString('en-US', { maximumFractionDigits: 2 });
-  return parseFloat(a.toFixed(6)).toLocaleString('en-US', { maximumFractionDigits: 6 });
+function fmtAmt(n) {
+  const a  = Math.abs(n);
+  const dp = selDecimals;
+  if (a >= 1e9) return (a/1e9).toLocaleString('en-US', { maximumFractionDigits: Math.min(dp, 3) }) + 'B';
+  if (a >= 1e6) return (a/1e6).toLocaleString('en-US', { maximumFractionDigits: Math.min(dp, 2) }) + 'M';
+  if (a >= 1e3) return a.toLocaleString('en-US', { maximumFractionDigits: Math.min(dp, 2) });
+  return parseFloat(a.toFixed(dp)).toLocaleString('en-US', { maximumFractionDigits: dp });
 }
 
-function fmtUSD(n, approx) {
-  if (n == null) return null;
-  if (approx) {
-    if (n >= 1e6) return `~$${(n/1e6).toFixed(1)}M`;
-    if (n >= 1e3) return `~$${(n/1e3).toFixed(0)}K`;
-    return `~$${n.toFixed(0)}`;
-  }
-  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// ═══════════════════════════════════════════
+//  VERIFY URL + QR
+// ═══════════════════════════════════════════
+const HMAC_KEY_MATERIAL = 'csp-v1-social-proof';
+let _hmacCryptoKey = null;
+
+async function getHmacKey() {
+  if (_hmacCryptoKey) return _hmacCryptoKey;
+  const enc = new TextEncoder();
+  _hmacCryptoKey = await crypto.subtle.importKey(
+    'raw', enc.encode(HMAC_KEY_MATERIAL),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign']
+  );
+  return _hmacCryptoKey;
 }
+
+function b64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function buildVerifyUrl(d) {
+  const payload = { v: 1, t: d.type, d: d.date };
+  if (d.primary)   payload.p = `${d.primary.amount} ${d.primary.symbol}`;
+  if (d.secondary) payload.s = `${d.secondary.amount} ${d.secondary.symbol}`;
+
+  const json = JSON.stringify(payload);
+  const enc  = new TextEncoder();
+  const key  = await getHmacKey();
+  const sig  = await crypto.subtle.sign('HMAC', key, enc.encode(json));
+  const hmac = b64url(sig);
+  const data = b64url(enc.encode(json));
+
+  // Derive base URL from current page, replacing filename with verify.html
+  const base = window.location.href.replace(/\/[^/?#]*([?#].*)?$/, '/');
+  return `${base}verify.html#${data}.${hmac}`;
+}
+
+function makeQrSvg(url) {
+  try {
+    const qr = qrcode(0, 'M');
+    qr.addData(url);
+    qr.make();
+    return qr.createSvgTag(2, 0);
+  } catch (_) {
+    // URL too long for type 0 auto, try explicit type 6
+    const qr = qrcode(6, 'M');
+    qr.addData(url);
+    qr.make();
+    return qr.createSvgTag(2, 0);
+  }
+}
+
+// Clickable nav bar — clicking a completed step navigates back to it.
+// Step 1 (Fetching) is excluded since it's a transient loading state.
+document.querySelectorAll('.prog-step').forEach((el, i) => {
+  el.addEventListener('click', () => {
+    if (i !== 1 && el.classList.contains('done')) goToStep(i);
+  });
+});
 
 // ═══════════════════════════════════════════
 //  VALIDATION
@@ -1065,7 +1151,6 @@ fetchBtn.addEventListener('click', async () => {
     return;
   }
 
-  sigInput.value = '';
   sigInput.classList.remove('input-err');
   inputError.classList.remove('visible');
 
@@ -1102,10 +1187,9 @@ fetchBtn.addEventListener('click', async () => {
 //  CONFIRM SCREEN
 // ═══════════════════════════════════════════
 function renderConfirm() {
-  const { type, date, wallet, platform, tokenChanges, solDelta, usdValue, solPriceMissing } = txData;
-  const approx = document.getElementById('tog-approx').checked;
-  const showW  = document.getElementById('tog-wallet').checked;
-  const showP  = document.getElementById('tog-platform').checked;
+  const { type, date, wallet, platform, tokenChanges, solDelta } = txData;
+  const showW = document.getElementById('tog-wallet').checked;
+  const showP = document.getElementById('tog-platform').checked;
 
   let html = '';
 
@@ -1115,27 +1199,19 @@ function renderConfirm() {
   if (type === 'SWAP') {
     const dec = tokenChanges.find(c => c.delta < 0);
     const inc = tokenChanges.find(c => c.delta > 0);
-    if (dec) html += row('Sold',     `<span style="color:#ef4444">−${fmtAmt(dec.delta, approx)} ${dec.symbol}</span>`);
-    if (inc) html += row('Received', `<span style="color:#22c55e">+${fmtAmt(inc.delta, approx)} ${inc.symbol}</span>`);
+    if (dec) html += row('Sold',     `<span style="color:#ef4444">−${fmtAmt(dec.delta)} ${dec.symbol}</span>`);
+    if (inc) html += row('Received', `<span style="color:#22c55e">+${fmtAmt(inc.delta)} ${inc.symbol}</span>`);
   } else {
     tokenChanges.forEach(tc => {
       const sign  = tc.delta > 0 ? '+' : '−';
       const color = tc.delta > 0 ? '#22c55e' : '#ef4444';
-      html += row('Token', `<span style="color:${color}">${sign}${fmtAmt(tc.delta, approx)} ${tc.symbol}</span>`);
+      html += row('Token', `<span style="color:${color}">${sign}${fmtAmt(tc.delta)} ${tc.symbol}</span>`);
     });
     if (tokenChanges.length === 0 && Math.abs(solDelta) > 0.000001) {
       const sign  = solDelta > 0 ? '+' : '−';
       const color = solDelta > 0 ? '#22c55e' : '#ef4444';
-      html += row('SOL', `<span style="color:${color}">${sign}${fmtAmt(solDelta, approx)} SOL</span>`);
+      html += row('SOL', `<span style="color:${color}">${sign}${fmtAmt(solDelta)} SOL</span>`);
     }
-  }
-
-  if (usdValue !== null) {
-    html += row('USD Value', fmtUSD(usdValue, approx));
-  } else if (solPriceMissing) {
-    html += row('USD Value',
-      `<input type="number" id="manual-usd" class="usd-manual" placeholder="Enter manually" min="0" step="0.01">`
-    );
   }
 
   if (showW && wallet) {
@@ -1160,7 +1236,16 @@ function row(label, value) {
   </div>`;
 }
 
-['tog-wallet','tog-platform','tog-approx'].forEach(id => {
+function selectDecimals(d) {
+  selDecimals = d;
+  document.querySelectorAll('.dec-btn').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.dec) === d);
+  });
+  renderConfirm();
+  if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
+}
+
+['tog-wallet','tog-platform'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     renderConfirm();
     if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
@@ -1168,11 +1253,6 @@ function row(label, value) {
 });
 
 document.getElementById('to-card-btn').addEventListener('click', () => {
-  const mu = document.getElementById('manual-usd');
-  if (mu) {
-    const v = parseFloat(mu.value);
-    if (!isNaN(v) && v >= 0) txData.usdValue = v;
-  }
   renderCardPreview();
   goToStep(3);
 });
@@ -1200,23 +1280,22 @@ function selectSize(s) {
 //  CARD DATA
 // ═══════════════════════════════════════════
 function getCardPayload() {
-  const { type, date, wallet, platform, tokenChanges, solDelta, usdValue } = txData;
-  const approx = document.getElementById('tog-approx').checked;
-  const showW  = document.getElementById('tog-wallet').checked;
-  const showP  = document.getElementById('tog-platform').checked;
+  const { type, date, wallet, platform, tokenChanges, solDelta } = txData;
+  const showW = document.getElementById('tog-wallet').checked;
+  const showP = document.getElementById('tog-platform').checked;
 
   let primary = null, secondary = null;
 
   if (type === 'SWAP') {
     const dec = tokenChanges.find(c => c.delta < 0);
     const inc = tokenChanges.find(c => c.delta > 0);
-    if (dec) primary   = { symbol: dec.symbol, amount: fmtAmt(Math.abs(dec.delta), approx) };
-    if (inc) secondary = { symbol: inc.symbol, amount: fmtAmt(inc.delta, approx) };
+    if (dec) primary   = { symbol: dec.symbol, amount: fmtAmt(Math.abs(dec.delta)) };
+    if (inc) secondary = { symbol: inc.symbol, amount: fmtAmt(inc.delta) };
   } else if (tokenChanges.length > 0) {
     const t = tokenChanges[0];
-    primary = { symbol: t.symbol, amount: fmtAmt(Math.abs(t.delta), approx) };
+    primary = { symbol: t.symbol, amount: fmtAmt(Math.abs(t.delta)) };
   } else if (Math.abs(solDelta) > 0.000001) {
-    primary = { symbol: 'SOL', amount: fmtAmt(Math.abs(solDelta), approx) };
+    primary = { symbol: 'SOL', amount: fmtAmt(Math.abs(solDelta)) };
   }
 
   const amtColor = (type === 'BUY' || type === 'RECEIVE' || type === 'STAKE') ? 'green'
@@ -1227,7 +1306,6 @@ function getCardPayload() {
     type, date,
     wallet:   showW ? wallet : null,
     platform: showP ? platform : null,
-    usd:      usdValue != null ? fmtUSD(usdValue, approx) : null,
     primary, secondary,
     amtColor
   };
@@ -1236,12 +1314,13 @@ function getCardPayload() {
 // ═══════════════════════════════════════════
 //  CARD RENDERERS
 // ═══════════════════════════════════════════
-function cardDark(d, w, h) {
+function cardDark(d, w, h, qrSvg = '') {
   const tc     = d.type.toLowerCase();
   const ac     = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : 'c-white';
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   return `
 <div class="card-root t-dark" style="width:${w}px;height:${h}px">
+  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div>
     <div class="type-pill pill-${tc}">${d.type}</div>
     ${isSwap ? `
@@ -1254,7 +1333,6 @@ function cardDark(d, w, h) {
       <div class="main-amt ${ac}">${d.primary.amount}</div>
       <div class="token-name">${d.primary.symbol}</div>
     ` : ''}
-    ${d.usd ? `<div class="usd-val">${d.usd}</div>` : ''}
   </div>
   <div class="card-footer">
     <span>${d.date}</span>
@@ -1265,7 +1343,7 @@ function cardDark(d, w, h) {
 </div>`;
 }
 
-function cardReceipt(d, w, h) {
+function cardReceipt(d, w, h, qrSvg = '') {
   let tRows = '';
   if (d.type === 'SWAP' && d.primary && d.secondary) {
     tRows += `<div class="rcp-row"><span class="rcp-k">SOLD</span><span class="rcp-v">${d.primary.amount} ${d.primary.symbol}</span></div>`;
@@ -1273,9 +1351,12 @@ function cardReceipt(d, w, h) {
   } else if (d.primary) {
     tRows += `<div class="rcp-row"><span class="rcp-k">AMOUNT</span><span class="rcp-v">${d.primary.amount} ${d.primary.symbol}</span></div>`;
   }
-  const total = d.usd || (d.primary ? `${d.primary.amount} ${d.primary.symbol}` : '–');
+  const total = d.type === 'SWAP' && d.secondary
+    ? `${d.secondary.amount} ${d.secondary.symbol}`
+    : d.primary ? `${d.primary.amount} ${d.primary.symbol}` : '–';
   return `
 <div class="card-root t-receipt" style="width:${w}px;height:${h}px">
+  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="rcp-hdr">
     <div class="rcp-title">TRANSACTION RECEIPT</div>
     <div class="rcp-date">${d.date}</div>
@@ -1289,11 +1370,12 @@ function cardReceipt(d, w, h) {
 </div>`;
 }
 
-function cardMeme(d, w, h) {
+function cardMeme(d, w, h, qrSvg = '') {
   const meta   = [d.date, d.wallet, d.platform].filter(Boolean).join(' · ');
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   return `
 <div class="card-root t-meme" style="width:${w}px;height:${h}px">
+  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="meme-type">${d.type}</div>
   ${isSwap ? `
     <div class="meme-amt" style="font-size:clamp(2rem,12vw,4rem)">${d.primary.amount}</div>
@@ -1305,17 +1387,17 @@ function cardMeme(d, w, h) {
     <div class="meme-amt">${d.primary.amount}</div>
     <div class="meme-token">${d.primary.symbol}</div>
   ` : ''}
-  ${d.usd ? `<div class="meme-usd">${d.usd}</div>` : ''}
   <div class="meme-meta">${meta}</div>
   <div class="csp-wm">cryptosocialproof.com</div>
 </div>`;
 }
 
-function cardSwap(d, w, h) {
-  if (d.type !== 'SWAP' || !d.primary || !d.secondary) return cardDark(d, w, h);
+function cardSwap(d, w, h, qrSvg = '') {
+  if (d.type !== 'SWAP' || !d.primary || !d.secondary) return cardDark(d, w, h, qrSvg);
   const meta = [d.date, d.wallet, d.platform].filter(Boolean);
   return `
 <div class="card-root t-swap" style="width:${w}px;height:${h}px">
+  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="swap-hdr">SWAP</div>
   <div class="swap-row">
     <div class="swap-pill">${d.primary.symbol}</div>
@@ -1326,7 +1408,6 @@ function cardSwap(d, w, h) {
     <div class="swap-pill">${d.secondary.symbol}</div>
     <div class="swap-amt">${d.secondary.amount}</div>
   </div>
-  ${d.usd ? `<div class="swap-usd">${d.usd}</div>` : ''}
   <div class="swap-foot">${meta.map(m => `<span>${m}</span>`).join('')}</div>
   <div class="csp-wm">cryptosocialproof.com</div>
 </div>`;
@@ -1335,18 +1416,24 @@ function cardSwap(d, w, h) {
 // ═══════════════════════════════════════════
 //  RENDER PREVIEW
 // ═══════════════════════════════════════════
-function renderCardPreview() {
+async function renderCardPreview() {
   const d = getCardPayload();
   const portrait = selSize === 'portrait';
   const W = 400, H = portrait ? 500 : 400;
 
+  let qrSvg = '';
+  try {
+    const verifyUrl = await buildVerifyUrl(d);
+    qrSvg = makeQrSvg(verifyUrl);
+  } catch (_) { /* QR generation failed silently — card still renders */ }
+
   let html;
   switch (selTheme) {
-    case 'dark':    html = cardDark(d, W, H);    break;
-    case 'receipt': html = cardReceipt(d, W, H); break;
-    case 'meme':    html = cardMeme(d, W, H);    break;
-    case 'swap':    html = cardSwap(d, W, H);    break;
-    default:        html = cardDark(d, W, H);
+    case 'dark':    html = cardDark(d, W, H, qrSvg);    break;
+    case 'receipt': html = cardReceipt(d, W, H, qrSvg); break;
+    case 'meme':    html = cardMeme(d, W, H, qrSvg);    break;
+    case 'swap':    html = cardSwap(d, W, H, qrSvg);    break;
+    default:        html = cardDark(d, W, H, qrSvg);
   }
   document.getElementById('card-preview').innerHTML = html;
 }
