@@ -4,6 +4,8 @@ Generate shareable proof cards for any Solana transaction — no sign-up, no API
 
 Paste a transaction signature, pick a card style, and download a ready-to-post PNG.
 
+**Live site:** [cryptosocialproof.com](https://cryptosocialproof.com)
+
 ---
 
 ## How it works
@@ -49,6 +51,68 @@ Every exported card includes a QR code in the top-right corner. Scanning it open
 The verification payload contains only what is visible on the card (transaction type, amounts, date). The underlying transaction signature and wallet address are never included — sharing a card does not dox your accounts.
 
 Verification uses HMAC-SHA256 via the browser's native Web Crypto API and runs entirely client-side. Nothing is sent to a server.
+
+---
+
+## Privacy controls
+
+On the confirm screen, two toggles let you control what appears on the card:
+
+- **Show wallet address** — off by default. Enable to show a truncated version of your wallet.
+- **Show platform** — on by default. Disable to hide the DEX or protocol name.
+
+---
+
+## Decimal precision
+
+A precision selector in the Parsed Data section controls how many decimal places are shown on the card: **2**, **4** (default), **6**, or **Max**.
+
+---
+
+## Navigation
+
+The progress bar at the top is fully clickable. Once you have reached a step, you can jump back to Input or Confirm without losing your data. The Card step remains accessible after navigating back — no need to re-select a theme. The signature field is preserved when navigating back to the Input step.
+
+---
+
+## Technical notes
+
+This is a fully static single-file app — just `index.html`. There is no backend.
+
+All data is fetched client-side:
+- **Transaction data** — multiple public Solana RPC endpoints tried in sequence with automatic fallback
+- **Token symbols** — `tokens.jup.ag`
+- **SOL price** — `api.coingecko.com`
+
+Card images are rendered via [html2canvas](https://html2canvas.hertzen.com/) and exported as PNG.
+
+QR codes are generated client-side via [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator).
+
+---
+
+## Deployment
+
+This repo is deployed via GitHub Pages from the root `index.html`. To fork and deploy your own copy:
+
+1. Fork this repo
+2. Go to **Settings → Pages**
+3. Set source to **Deploy from a branch → main → / (root)**
+4. Your site will be live at `https://yourusername.github.io/repo-name/`
+
+---
+
+## Local development
+
+No build step required. Just serve `index.html` from any static file server:
+
+```bash
+python3 -m http.server 8080
+# then open http://localhost:8080
+```
+
+Or use VS Code's Live Server extension.
+
+> Opening `index.html` directly as a `file://` URL will not work — browsers block cross-origin requests from the file protocol.
 
 ---
 
