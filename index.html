@@ -708,7 +708,7 @@ function fetchWithTimeout(url, options = {}, ms = 12000) {
     .catch(e => { clearTimeout(id); throw e; });
 }
 
-async function rpcCall(method, params) {
+async function rpcCall(method, params, { retryOnNull = false } = {}) {
   const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params });
   const opts  = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
 
@@ -719,13 +719,15 @@ async function rpcCall(method, params) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(`RPC error: ${json.error.message || JSON.stringify(json.error)}`);
+      if (retryOnNull && json.result === null) continue; // node doesn't have it, try next
       return json;
     } catch (e) {
       lastErr = e;
       // try next endpoint
     }
   }
-  throw lastErr;
+  if (lastErr) throw lastErr;
+  return { result: null }; // all endpoints returned null
 }
 
 // ═══════════════════════════════════════════
@@ -777,7 +779,7 @@ async function parseTx(sig) {
   const resp = await rpcCall('getTransaction', [
     sig,
     { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0, commitment: 'finalized' }
-  ]);
+  ], { retryOnNull: true });
 
   if (!resp?.result) return null;
   const result = resp.result;
