@@ -238,7 +238,7 @@
     /* ---- Card step ---- */
     .theme-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 8px;
       margin-bottom: 20px;
     }
@@ -257,6 +257,7 @@
     .tp-receipt { background: #f0f0f0; border: 1px solid #ddd; }
     .tp-meme    { background: #1e1b4b; }
     .tp-swap    { background: #0f0f1a; }
+    .tp-photo   { background: linear-gradient(to bottom, #555 70%, #0d0d0d 70%); }
     .theme-name { font-size: 11px; font-weight: 700; color: #666; }
 
     .size-grid { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -467,6 +468,65 @@
     .dec-btn:hover { border-color: #c7d2fe; color: #6366f1; }
     .dec-btn.selected { border-color: #6366f1; color: #6366f1; background: #eef2ff; }
 
+    /* ---- Theme: Photo ---- */
+    .t-photo { background: #0d0d0d; }
+    .t-photo .photo-img {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      width: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+    .t-photo .photo-placeholder {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      background: linear-gradient(135deg, #1e1b4b 0%, #111827 100%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .t-photo .photo-placeholder::after {
+      content: 'Upload a photo above';
+      font-size: 12px; color: #4b5563; font-weight: 500;
+    }
+    .t-photo .photo-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: #0d0d0d;
+      padding: 14px 18px 16px;
+      display: flex; flex-direction: column; justify-content: center; gap: 3px;
+    }
+    .t-photo .photo-row { display: flex; align-items: baseline; gap: 7px; }
+    .t-photo .photo-amt {
+      font-size: 20px; font-weight: 800;
+      letter-spacing: -0.02em; line-height: 1.1; color: #fff;
+    }
+    .t-photo .photo-amt.c-green { color: #22c55e; }
+    .t-photo .photo-amt.c-red   { color: #ef4444; }
+    .t-photo .photo-sym { font-size: 13px; font-weight: 600; color: #6b7280; }
+    .t-photo .photo-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 6px;
+    }
+    .t-photo .photo-type { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; color: #4b5563; text-transform: uppercase; }
+    .t-photo .photo-date { font-size: 10px; color: #4b5563; }
+    .t-photo .csp-wm { color: rgba(255,255,255,0.2); }
+
+    /* ---- Photo upload ---- */
+    .photo-upload-label { display: block; cursor: pointer; margin-bottom: 20px; }
+    .photo-drop-area {
+      border: 2px dashed #e5e7eb;
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+      background: #fafafa;
+    }
+    .photo-drop-area:hover { border-color: #6366f1; }
+    .photo-drop-icon { font-size: 22px; margin-bottom: 5px; }
+    .photo-drop-text { font-size: 12px; color: #9ca3af; font-weight: 500; }
+    .photo-drop-area.has-photo { border-color: #6366f1; background: #eef2ff; }
+    .photo-drop-area.has-photo .photo-drop-text { color: #6366f1; }
+
     /* ---- QR Code badge ---- */
     .card-qr {
       position: absolute;
@@ -486,7 +546,7 @@
     @media (max-width: 480px) {
       body { padding: 12px 10px 32px; }
       .step-panel { padding: 20px 16px 18px; }
-      .theme-grid { grid-template-columns: repeat(2, 1fr); }
+      .theme-grid { grid-template-columns: repeat(3, 1fr); }
       .card-preview-wrap { padding: 10px; }
     }
   </style>
@@ -569,6 +629,13 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Show QR verification code</span>
+        <label class="toggle">
+          <input type="checkbox" id="tog-qr" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
 
     <button class="primary-btn" id="to-card-btn">Choose Card Style →</button>
@@ -595,6 +662,22 @@
         <div class="tp-thumb tp-swap"></div>
         <div class="theme-name">Swap</div>
       </div>
+      <div class="theme-opt" data-theme="photo" onclick="selectTheme('photo')">
+        <div class="tp-thumb tp-photo"></div>
+        <div class="theme-name">Photo</div>
+      </div>
+    </div>
+
+    <!-- Photo upload — shown only when Photo theme is active -->
+    <div id="photo-upload-wrap" class="hidden">
+      <div class="section-title">Background Photo</div>
+      <label class="photo-upload-label" for="photo-input">
+        <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)">
+        <div class="photo-drop-area" id="photo-drop-area">
+          <div class="photo-drop-icon">🖼</div>
+          <div class="photo-drop-text" id="photo-drop-text">Click to upload a photo</div>
+        </div>
+      </label>
     </div>
 
     <div class="section-title">Export Size</div>
@@ -1010,6 +1093,7 @@ let selTheme    = 'dark';
 let selSize     = 'square';
 let selDecimals = 4;
 let maxStep     = 0;
+let photoDataUrl = null;
 
 // ═══════════════════════════════════════════
 //  NAVIGATION
@@ -1027,14 +1111,23 @@ function goToStep(n) {
 }
 
 function resetApp() {
-  txData = null;
+  txData       = null;
+  photoDataUrl = null;
   sigInput.value = '';
   sigInput.classList.remove('input-err');
   inputError.classList.remove('visible');
-  document.getElementById('data-table').innerHTML  = '';
+  document.getElementById('data-table').innerHTML   = '';
   document.getElementById('card-preview').innerHTML = '';
   document.getElementById('tog-wallet').checked   = false;
   document.getElementById('tog-platform').checked = true;
+  document.getElementById('tog-qr').checked       = true;
+  const dropArea = document.getElementById('photo-drop-area');
+  if (dropArea) dropArea.classList.remove('has-photo');
+  const dropText = document.getElementById('photo-drop-text');
+  if (dropText) dropText.textContent = 'Click to upload a photo';
+  const photoInput = document.getElementById('photo-input');
+  if (photoInput) photoInput.value = '';
+  document.getElementById('photo-upload-wrap').classList.add('hidden');
   selTheme    = 'dark';
   selSize     = 'square';
   selDecimals = 4;
@@ -1249,7 +1342,7 @@ function selectDecimals(d) {
   if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
 }
 
-['tog-wallet','tog-platform'].forEach(id => {
+['tog-wallet','tog-platform','tog-qr'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     renderConfirm();
     if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
@@ -1269,7 +1362,22 @@ function selectTheme(t) {
   document.querySelectorAll('.theme-opt').forEach(el => {
     el.classList.toggle('selected', el.dataset.theme === t);
   });
+  document.getElementById('photo-upload-wrap').classList.toggle('hidden', t !== 'photo');
   renderCardPreview();
+}
+
+function handlePhotoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    photoDataUrl = ev.target.result;
+    const area = document.getElementById('photo-drop-area');
+    area.classList.add('has-photo');
+    document.getElementById('photo-drop-text').textContent = file.name;
+    renderCardPreview();
+  };
+  reader.readAsDataURL(file);
 }
 
 function selectSize(s) {
@@ -1417,6 +1525,51 @@ function cardSwap(d, w, h, qrSvg = '') {
 </div>`;
 }
 
+function cardPhoto(d, w, h, qrSvg = '', photo = '') {
+  const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
+  const barH   = Math.round(h * (isSwap ? 0.30 : 0.24));
+  const photoH = h - barH;
+
+  let rowsHtml = '';
+  if (isSwap) {
+    rowsHtml = `
+      <div class="photo-row">
+        <span class="photo-amt c-red">−${d.primary.amount}</span>
+        <span class="photo-sym">${d.primary.symbol}</span>
+      </div>
+      <div class="photo-row">
+        <span class="photo-amt c-green">+${d.secondary.amount}</span>
+        <span class="photo-sym">${d.secondary.symbol}</span>
+      </div>`;
+  } else if (d.primary) {
+    const ac = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : '';
+    rowsHtml = `
+      <div class="photo-row">
+        <span class="photo-amt ${ac}">${d.primary.amount}</span>
+        <span class="photo-sym">${d.primary.symbol}</span>
+      </div>`;
+  }
+
+  const photoEl = photo
+    ? `<img class="photo-img" src="${photo}" style="height:${photoH}px" alt="">`
+    : `<div class="photo-placeholder" style="height:${photoH}px"></div>`;
+
+  return `
+<div class="card-root t-photo" style="width:${w}px;height:${h}px">
+  ${photoEl}
+  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
+  <div class="photo-bar" style="height:${barH}px">
+    ${rowsHtml}
+    <div class="photo-meta">
+      <span class="photo-type">${d.type}</span>
+      <span class="photo-date">${d.date}${d.platform ? ' · ' + d.platform : ''}</span>
+    </div>
+    ${d.wallet ? `<div style="font-size:10px;color:#374151;font-family:'Courier New',monospace;margin-top:2px">${d.wallet}</div>` : ''}
+  </div>
+  <div class="csp-wm">cryptosocialproof.com</div>
+</div>`;
+}
+
 // ═══════════════════════════════════════════
 //  RENDER PREVIEW
 // ═══════════════════════════════════════════
@@ -1426,17 +1579,20 @@ async function renderCardPreview() {
   const W = 400, H = portrait ? 500 : 400;
 
   let qrSvg = '';
-  try {
-    const verifyUrl = await buildVerifyUrl(d);
-    qrSvg = makeQrSvg(verifyUrl);
-  } catch (_) { /* QR generation failed silently — card still renders */ }
+  if (document.getElementById('tog-qr').checked) {
+    try {
+      const verifyUrl = await buildVerifyUrl(d);
+      qrSvg = makeQrSvg(verifyUrl);
+    } catch (_) { /* QR generation failed silently — card still renders */ }
+  }
 
   let html;
   switch (selTheme) {
-    case 'dark':    html = cardDark(d, W, H, qrSvg);    break;
-    case 'receipt': html = cardReceipt(d, W, H, qrSvg); break;
-    case 'meme':    html = cardMeme(d, W, H, qrSvg);    break;
-    case 'swap':    html = cardSwap(d, W, H, qrSvg);    break;
+    case 'dark':    html = cardDark(d, W, H, qrSvg);                  break;
+    case 'receipt': html = cardReceipt(d, W, H, qrSvg);               break;
+    case 'meme':    html = cardMeme(d, W, H, qrSvg);                  break;
+    case 'swap':    html = cardSwap(d, W, H, qrSvg);                  break;
+    case 'photo':   html = cardPhoto(d, W, H, qrSvg, photoDataUrl);   break;
     default:        html = cardDark(d, W, H, qrSvg);
   }
   document.getElementById('card-preview').innerHTML = html;
