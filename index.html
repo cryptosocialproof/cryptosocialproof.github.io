@@ -355,6 +355,17 @@
       color: #fff; font-size: 13px; font-weight: 800; letter-spacing: -0.02em;
     }
 
+    /* ---- Toast notification ---- */
+    #csp-toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: #1a1a1a; color: #fff; font-size: 13px; font-weight: 500;
+      padding: 10px 20px; border-radius: 10px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.28);
+      z-index: 9999; opacity: 0; transition: opacity 0.25s;
+      pointer-events: none; max-width: 320px; text-align: center; line-height: 1.45;
+    }
+    #csp-toast.visible { opacity: 1; }
+
     /* ---- USD value in cards ---- */
     .card-usd { font-size: 0.72em; opacity: 0.55; font-weight: 500; margin-top: 4px; letter-spacing: 0.01em; }
     .rcp-usd  { font-size: 11px; color: #999; text-align: right; margin-top: 4px; }
@@ -792,9 +803,9 @@
     </div>
     <div class="share-row">
       <span class="share-label">Share:</span>
-      <button class="share-btn share-x"  onclick="shareToX()"         title="Share on X">𝕏</button>
-      <button class="share-btn share-fb" onclick="shareToFacebook()"   title="Share on Facebook">f</button>
-      <button class="share-btn share-ig" onclick="shareToInstagram()"  title="Share on Instagram">IG</button>
+      <button class="share-btn share-x"  onclick="shareCard('x')"         title="Share on X">𝕏</button>
+      <button class="share-btn share-fb" onclick="shareCard('facebook')"   title="Share on Facebook">f</button>
+      <button class="share-btn share-ig" onclick="shareCard('instagram')"  title="Share on Instagram">IG</button>
     </div>
   </div>
 
@@ -1946,57 +1957,97 @@ async function copyCard() {
   }
 }
 
-async function shareToX() {
-  const d = getCardPayload();
+// ── Toast notification ──────────────────────────────────────────────────
+function showToast(msg, duration = 4500) {
+  let t = document.getElementById('csp-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'csp-toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('visible'), duration);
+}
+
+// ── Build share text ────────────────────────────────────────────────────
+function buildShareText(d) {
   let text;
   if (d.type === 'SWAP' && d.primary && d.secondary) {
     text = `Just swapped ${d.primary.amount} ${d.primary.symbol} → ${d.secondary.amount} ${d.secondary.symbol} on Solana 🔄`;
   } else if (d.primary) {
-    const verb = { BUY: 'bought', SELL: 'sold', RECEIVE: 'received', SEND: 'sent', STAKE: 'staked' }[d.type] || d.type.toLowerCase() + 'ed';
+    const verb = { BUY: 'bought', SELL: 'sold', RECEIVE: 'received', SEND: 'sent', STAKE: 'staked' }[d.type]
+                 || (d.type.toLowerCase() + 'ed');
     text = `Just ${verb} ${d.primary.amount} ${d.primary.symbol} on Solana`;
   } else {
     text = `Solana ${d.type} transaction`;
   }
   if (d.usdValue) text += ` (${d.usdValue})`;
   text += '\n\n#Solana #Crypto';
-  try {
-    const url = await buildVerifyUrl(d);
-    text += `\n\n🔗 ${url}`;
-  } catch (_) {}
-  window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+  return text;
 }
 
-async function shareToFacebook() {
-  const d = getCardPayload();
-  let shareUrl = window.location.origin + window.location.pathname;
-  try { shareUrl = await buildVerifyUrl(d); } catch (_) {}
-  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank', 'width=600,height=400');
-}
+// ── Unified share handler ───────────────────────────────────────────────
+// Strategy:
+//   1. Render card to canvas → PNG File object
+//   2. Try navigator.share({ files }) — hands the actual image to the OS
+//      share sheet (works on modern Chrome + Safari, mobile & desktop)
+//   3. If unavailable or denied, fall back per platform:
+//      X        → auto-download image + open tweet composer (user attaches)
+//      Facebook → auto-download image + open FB sharer (link preview only)
+//      Instagram → auto-download image + toast with instructions
+async function shareCard(platform) {
+  const overlay = document.getElementById('export-overlay');
+  overlay.classList.add('visible');
+  let canvas;
+  try { canvas = await renderToCanvas(); }
+  catch (e) { overlay.classList.remove('visible'); alert(e.message); return; }
+  overlay.classList.remove('visible');
 
-async function shareToInstagram() {
-  // Instagram has no web share API on desktop — use Web Share API on mobile, otherwise prompt download
-  if (navigator.share) {
-    const overlay = document.getElementById('export-overlay');
-    overlay.classList.add('visible');
-    let canvas;
-    try { canvas = await renderToCanvas(); } catch (e) { overlay.classList.remove('visible'); alert(e.message); return; }
-    overlay.classList.remove('visible');
-    canvas.toBlob(async blob => {
-      const file = new File([blob], 'cryptosocialproof.png', { type: 'image/png' });
-      try {
-        if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'My Solana Transaction' });
-        } else {
-          await navigator.share({ title: 'CryptoSocialProof', url: window.location.href });
-        }
-      } catch (e) {
-        if (e.name !== 'AbortError') alert('Could not share. Please download and post to Instagram manually.');
-      }
-    }, 'image/png');
-  } else {
-    // Desktop fallback: download the card, then prompt user
-    await exportCard();
-    setTimeout(() => alert('Image downloaded!\n\nOpen Instagram and share it from your gallery or camera roll.'), 600);
+  // Convert to a File object (needed for Web Share API)
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+  const file = new File([blob], 'cryptosocialproof.png', { type: 'image/png' });
+  const d    = getCardPayload();
+  const text = buildShareText(d);
+
+  // Try Web Share API with the image file
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'CryptoSocialProof', text });
+      return; // OS share sheet handled it
+    } catch (e) {
+      if (e.name === 'AbortError') return; // user dismissed — do nothing
+      // other error — fall through to platform fallback
+    }
+  }
+
+  // Fallback: auto-download the image, then do platform-specific action
+  const dlLink = document.createElement('a');
+  dlLink.download = `cryptosocialproof_${Date.now()}.png`;
+  dlLink.href = URL.createObjectURL(blob);
+  dlLink.click();
+  setTimeout(() => URL.revokeObjectURL(dlLink.href), 10000);
+
+  if (platform === 'x') {
+    // Open tweet composer with text; user attaches the downloaded image
+    let fullText = text;
+    try { fullText += `\n\n🔗 ${await buildVerifyUrl(d)}`; } catch (_) {}
+    setTimeout(() => {
+      window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(fullText)}`, '_blank');
+    }, 200);
+    showToast('Image saved — attach it to your tweet using the 📎 button');
+
+  } else if (platform === 'facebook') {
+    let shareUrl = window.location.href;
+    try { shareUrl = await buildVerifyUrl(d); } catch (_) {}
+    setTimeout(() => {
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank', 'width=600,height=440');
+    }, 200);
+    showToast('Image saved — attach it to your Facebook post manually');
+
+  } else if (platform === 'instagram') {
+    showToast('Image saved — open Instagram and create a post from your gallery 📸');
   }
 }
 
