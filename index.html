@@ -374,12 +374,12 @@
     .t-dark .main-amt.c-red   { color: #ef4444; }
     .t-dark .main-amt.c-white { color: #fff; }
     .t-dark .token-name { font-size: 18px; color: #6b7280; margin-bottom: 18px; font-weight: 500; }
-    .t-dark .usd-val    { font-size: 15px; color: #4b5563; margin-bottom: 4px; }
+    .t-dark .usd-val    { font-size: 15px; color: rgba(255,255,255,0.45); margin-bottom: 4px; }
     .t-dark .card-footer {
       display: flex; flex-wrap: wrap; gap: 14px;
-      font-size: 12px; color: #374151;
+      font-size: 12px; color: rgba(255,255,255,0.65);
     }
-    .t-dark .card-footer .wallet { font-family: 'Courier New', monospace; color: #4b5563; font-size: 11px; }
+    .t-dark .card-footer .wallet { font-family: 'Courier New', monospace; color: rgba(255,255,255,0.45); font-size: 11px; }
     .t-dark .csp-wm { color: #fff; }
 
     /* ---- Theme: Receipt ---- */
@@ -431,7 +431,7 @@
     .t-meme .meme-amt   { font-size: 62px; font-weight: 900; line-height: 1; letter-spacing: -0.03em; color: #fff; margin-bottom: 6px; }
     .t-meme .meme-token { font-size: 22px; font-weight: 700; color: #a5b4fc; margin-bottom: 16px; }
     .t-meme .meme-usd   { font-size: 15px; font-weight: 600; color: #6366f1; margin-bottom: 20px; }
-    .t-meme .meme-meta  { font-size: 11px; color: #312e81; }
+    .t-meme .meme-meta  { font-size: 11px; color: rgba(255,255,255,0.65); }
     .t-meme .csp-wm     { color: rgba(255,255,255,0.28); }
 
     /* ---- Theme: Swap Flow ---- */
@@ -443,13 +443,13 @@
       flex-direction: column;
       justify-content: center;
     }
-    .t-swap .swap-hdr  { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: #374151; margin-bottom: 22px; }
+    .t-swap .swap-hdr  { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 22px; }
     .t-swap .swap-row  { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .t-swap .swap-pill { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: #9ca3af; }
     .t-swap .swap-amt  { font-size: 26px; font-weight: 800; color: white; }
     .t-swap .swap-arrow { font-size: 24px; color: #4f46e5; margin: 4px 0 8px 0; }
-    .t-swap .swap-usd  { margin-top: 14px; font-size: 13px; color: #374151; }
-    .t-swap .swap-foot { display: flex; gap: 14px; margin-top: 18px; font-size: 11px; color: #1f2937; }
+    .t-swap .swap-usd  { margin-top: 14px; font-size: 13px; color: rgba(255,255,255,0.65); }
+    .t-swap .swap-foot { display: flex; gap: 14px; margin-top: 18px; font-size: 11px; color: rgba(255,255,255,0.65); }
     .t-swap .csp-wm    { color: rgba(255,255,255,0.25); }
 
     /* ---- Decimal selector ---- */
@@ -471,16 +471,11 @@
     /* ---- Theme: Photo ---- */
     .t-photo { background: #0d0d0d; }
     .t-photo .photo-img {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      width: 100%;
-      object-fit: cover;
-      object-position: center;
       display: block;
+      transform-origin: center center;
     }
     .t-photo .photo-placeholder {
-      position: absolute;
-      top: 0; left: 0; right: 0;
+      width: 100%;
       background: linear-gradient(135deg, #1e1b4b 0%, #111827 100%);
       display: flex; align-items: center; justify-content: center;
     }
@@ -507,8 +502,8 @@
       display: flex; justify-content: space-between; align-items: center;
       margin-top: 6px;
     }
-    .t-photo .photo-type { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; color: #4b5563; text-transform: uppercase; }
-    .t-photo .photo-date { font-size: 10px; color: #4b5563; }
+    .t-photo .photo-type { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; color: rgba(255,255,255,0.75); text-transform: uppercase; }
+    .t-photo .photo-date { font-size: 10px; color: rgba(255,255,255,0.75); }
     .t-photo .csp-wm { color: rgba(255,255,255,0.2); }
 
     /* ---- Photo upload ---- */
@@ -526,6 +521,46 @@
     .photo-drop-text { font-size: 12px; color: #9ca3af; font-weight: 500; }
     .photo-drop-area.has-photo { border-color: #6366f1; background: #eef2ff; }
     .photo-drop-area.has-photo .photo-drop-text { color: #6366f1; }
+
+    /* ---- Photo pan/zoom controls ---- */
+    .photo-controls { margin-top: 12px; display: none; }
+    .photo-controls.visible { display: block; }
+    .photo-ctrl-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 8px;
+    }
+    .photo-ctrl-label {
+      font-size: 11px; font-weight: 700; color: #666;
+      width: 44px; flex-shrink: 0;
+    }
+    .photo-ctrl-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: #e5e7eb;
+      outline: none;
+      cursor: pointer;
+    }
+    .photo-ctrl-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+    }
+    .photo-ctrl-slider::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #6366f1;
+      border: none;
+      cursor: pointer;
+    }
+    .photo-ctrl-val {
+      font-size: 11px; color: #9ca3af; width: 36px;
+      text-align: right; flex-shrink: 0;
+    }
 
     /* ---- QR Code badge ---- */
     .card-qr {
@@ -678,6 +713,23 @@
           <div class="photo-drop-text" id="photo-drop-text">Click to upload a photo</div>
         </div>
       </label>
+      <div class="photo-controls" id="photo-controls">
+        <div class="photo-ctrl-row">
+          <span class="photo-ctrl-label">Zoom</span>
+          <input class="photo-ctrl-slider" type="range" id="ctrl-zoom" min="100" max="300" value="100" step="1" oninput="onPhotoCtrl()">
+          <span class="photo-ctrl-val" id="val-zoom">1×</span>
+        </div>
+        <div class="photo-ctrl-row">
+          <span class="photo-ctrl-label">Pan X</span>
+          <input class="photo-ctrl-slider" type="range" id="ctrl-panx" min="-50" max="50" value="0" step="1" oninput="onPhotoCtrl()">
+          <span class="photo-ctrl-val" id="val-panx">0%</span>
+        </div>
+        <div class="photo-ctrl-row">
+          <span class="photo-ctrl-label">Pan Y</span>
+          <input class="photo-ctrl-slider" type="range" id="ctrl-pany" min="-50" max="50" value="0" step="1" oninput="onPhotoCtrl()">
+          <span class="photo-ctrl-val" id="val-pany">0%</span>
+        </div>
+      </div>
     </div>
 
     <div class="section-title">Export Size</div>
@@ -1094,6 +1146,9 @@ let selSize     = 'square';
 let selDecimals = 4;
 let maxStep     = 0;
 let photoDataUrl = null;
+let photoZoom    = 1;
+let photoPanX    = 0;
+let photoPanY    = 0;
 
 // ═══════════════════════════════════════════
 //  NAVIGATION
@@ -1128,6 +1183,15 @@ function resetApp() {
   const photoInput = document.getElementById('photo-input');
   if (photoInput) photoInput.value = '';
   document.getElementById('photo-upload-wrap').classList.add('hidden');
+  photoZoom = 1; photoPanX = 0; photoPanY = 0;
+  const zoomEl = document.getElementById('ctrl-zoom');
+  const panxEl = document.getElementById('ctrl-panx');
+  const panyEl = document.getElementById('ctrl-pany');
+  if (zoomEl) { zoomEl.value = 100; document.getElementById('val-zoom').textContent = '1×'; }
+  if (panxEl) { panxEl.value = 0;   document.getElementById('val-panx').textContent = '0%'; }
+  if (panyEl) { panyEl.value = 0;   document.getElementById('val-pany').textContent = '0%'; }
+  const photoCtrl = document.getElementById('photo-controls');
+  if (photoCtrl) photoCtrl.classList.remove('visible');
   selTheme    = 'dark';
   selSize     = 'square';
   selDecimals = 4;
@@ -1366,6 +1430,19 @@ function selectTheme(t) {
   renderCardPreview();
 }
 
+function onPhotoCtrl() {
+  const zoom = parseFloat(document.getElementById('ctrl-zoom').value);
+  const panx = parseFloat(document.getElementById('ctrl-panx').value);
+  const pany = parseFloat(document.getElementById('ctrl-pany').value);
+  document.getElementById('val-zoom').textContent = (zoom / 100).toFixed(2).replace(/\.?0+$/, '') + '×';
+  document.getElementById('val-panx').textContent = (panx > 0 ? '+' : '') + panx + '%';
+  document.getElementById('val-pany').textContent = (pany > 0 ? '+' : '') + pany + '%';
+  photoZoom = zoom / 100;
+  photoPanX = panx;
+  photoPanY = pany;
+  renderCardPreview();
+}
+
 function handlePhotoUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -1375,6 +1452,7 @@ function handlePhotoUpload(e) {
     const area = document.getElementById('photo-drop-area');
     area.classList.add('has-photo');
     document.getElementById('photo-drop-text').textContent = file.name;
+    document.getElementById('photo-controls').classList.add('visible');
     renderCardPreview();
   };
   reader.readAsDataURL(file);
@@ -1525,7 +1603,7 @@ function cardSwap(d, w, h, qrSvg = '') {
 </div>`;
 }
 
-function cardPhoto(d, w, h, qrSvg = '', photo = '') {
+function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0) {
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   const barH   = Math.round(h * (isSwap ? 0.30 : 0.24));
   const photoH = h - barH;
@@ -1551,7 +1629,12 @@ function cardPhoto(d, w, h, qrSvg = '', photo = '') {
   }
 
   const photoEl = photo
-    ? `<img class="photo-img" src="${photo}" style="height:${photoH}px" alt="">`
+    ? `<div style="height:${photoH}px;overflow:hidden;position:relative;">
+        <img class="photo-img" src="${photo}"
+          style="position:absolute;top:50%;left:50%;
+                 transform:translate(calc(-50% + ${panX}%),calc(-50% + ${panY}%)) scale(${zoom});
+                 min-width:100%;min-height:100%;max-width:none;width:auto;height:auto;" alt="">
+       </div>`
     : `<div class="photo-placeholder" style="height:${photoH}px"></div>`;
 
   return `
@@ -1564,7 +1647,7 @@ function cardPhoto(d, w, h, qrSvg = '', photo = '') {
       <span class="photo-type">${d.type}</span>
       <span class="photo-date">${d.date}${d.platform ? ' · ' + d.platform : ''}</span>
     </div>
-    ${d.wallet ? `<div style="font-size:10px;color:#374151;font-family:'Courier New',monospace;margin-top:2px">${d.wallet}</div>` : ''}
+    ${d.wallet ? `<div style="font-size:10px;color:rgba(255,255,255,0.55);font-family:'Courier New',monospace;margin-top:2px">${d.wallet}</div>` : ''}
   </div>
   <div class="csp-wm">cryptosocialproof.com</div>
 </div>`;
@@ -1592,7 +1675,7 @@ async function renderCardPreview() {
     case 'receipt': html = cardReceipt(d, W, H, qrSvg);               break;
     case 'meme':    html = cardMeme(d, W, H, qrSvg);                  break;
     case 'swap':    html = cardSwap(d, W, H, qrSvg);                  break;
-    case 'photo':   html = cardPhoto(d, W, H, qrSvg, photoDataUrl);   break;
+    case 'photo':   html = cardPhoto(d, W, H, qrSvg, photoDataUrl, photoZoom, photoPanX, photoPanY);   break;
     default:        html = cardDark(d, W, H, qrSvg);
   }
   document.getElementById('card-preview').innerHTML = html;
