@@ -806,6 +806,7 @@
       <button class="share-btn share-x"  onclick="shareCard('x')"         title="Share on X">𝕏</button>
       <button class="share-btn share-fb" onclick="shareCard('facebook')"   title="Share on Facebook">f</button>
       <button class="share-btn share-ig" onclick="shareCard('instagram')"  title="Share on Instagram">IG</button>
+      <span style="font-size:11px;color:#bbb;margin-left:auto">On mobile, opens share sheet with image · On desktop, copies image to clipboard</span>
     </div>
   </div>
 
@@ -1989,14 +1990,14 @@ function buildShareText(d) {
 }
 
 // ── Unified share handler ───────────────────────────────────────────────
-// Strategy:
-//   1. Render card to canvas → PNG File object
-//   2. Try navigator.share({ files }) — hands the actual image to the OS
-//      share sheet (works on modern Chrome + Safari, mobile & desktop)
-//   3. If unavailable or denied, fall back per platform:
-//      X        → auto-download image + open tweet composer (user attaches)
-//      Facebook → auto-download image + open FB sharer (link preview only)
-//      Instagram → auto-download image + toast with instructions
+// Priority order:
+//   1. Web Share API with image file — works on mobile (iOS/Android) and
+//      shows the native OS share sheet where user picks X/IG/FB/etc.
+//      Also works on desktop Chrome/Edge/Safari if the OS has those apps
+//      in its share menu.
+//   2. Desktop fallback — copy image to clipboard, then open the platform.
+//      For X the user pastes the clipboard image into the tweet composer.
+//      For FB/IG the image is downloaded and instructions are shown.
 async function shareCard(platform) {
   const overlay = document.getElementById('export-overlay');
   overlay.classList.add('visible');
@@ -2005,49 +2006,62 @@ async function shareCard(platform) {
   catch (e) { overlay.classList.remove('visible'); alert(e.message); return; }
   overlay.classList.remove('visible');
 
-  // Convert to a File object (needed for Web Share API)
   const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
   const file = new File([blob], 'cryptosocialproof.png', { type: 'image/png' });
   const d    = getCardPayload();
   const text = buildShareText(d);
 
-  // Try Web Share API with the image file
+  // ── Path 1: Web Share API (mobile + some desktop) ─────────────────────
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'CryptoSocialProof', text });
-      return; // OS share sheet handled it
+      return;
     } catch (e) {
-      if (e.name === 'AbortError') return; // user dismissed — do nothing
-      // other error — fall through to platform fallback
+      if (e.name === 'AbortError') return;
+      // non-abort error — fall through to desktop fallback
     }
   }
 
-  // Fallback: auto-download the image, then do platform-specific action
-  const dlLink = document.createElement('a');
-  dlLink.download = `cryptosocialproof_${Date.now()}.png`;
-  dlLink.href = URL.createObjectURL(blob);
-  dlLink.click();
-  setTimeout(() => URL.revokeObjectURL(dlLink.href), 10000);
+  // ── Path 2: Desktop fallback ──────────────────────────────────────────
+  // Try clipboard first; if that fails, download the file.
+  let imageInClipboard = false;
+  if (navigator.clipboard?.write) {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      imageInClipboard = true;
+    } catch (_) {}
+  }
+  if (!imageInClipboard) {
+    // clipboard unavailable — download file as backup
+    const dl = document.createElement('a');
+    dl.download = `cryptosocialproof_${Date.now()}.png`;
+    dl.href = URL.createObjectURL(blob);
+    dl.click();
+    setTimeout(() => URL.revokeObjectURL(dl.href), 10000);
+  }
 
   if (platform === 'x') {
-    // Open tweet composer with text; user attaches the downloaded image
+    // Open X tweet composer pre-filled with text.
+    // If image is in clipboard, user just presses Ctrl+V / ⌘+V in the composer.
     let fullText = text;
     try { fullText += `\n\n🔗 ${await buildVerifyUrl(d)}`; } catch (_) {}
-    setTimeout(() => {
-      window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(fullText)}`, '_blank');
-    }, 200);
-    showToast('Image saved — attach it to your tweet using the 📎 button');
+    setTimeout(() => window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(fullText)}`, '_blank'), 200);
+    showToast(imageInClipboard
+      ? 'Card copied to clipboard — paste it into your tweet (Ctrl+V / ⌘+V) 📋'
+      : 'Card saved — attach it to your tweet with the 📎 icon');
 
   } else if (platform === 'facebook') {
-    let shareUrl = window.location.href;
-    try { shareUrl = await buildVerifyUrl(d); } catch (_) {}
-    setTimeout(() => {
-      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank', 'width=600,height=440');
-    }, 200);
-    showToast('Image saved — attach it to your Facebook post manually');
+    // Open Facebook — user creates a post and attaches/pastes the image.
+    setTimeout(() => window.open('https://www.facebook.com/', '_blank'), 200);
+    showToast(imageInClipboard
+      ? 'Card copied to clipboard — create a Facebook post and paste it (Ctrl+V / ⌘+V) 📋'
+      : 'Card saved — create a Facebook post and attach the image 📎');
 
   } else if (platform === 'instagram') {
-    showToast('Image saved — open Instagram and create a post from your gallery 📸');
+    // Instagram has no desktop web upload path — download is the only option.
+    showToast(imageInClipboard
+      ? 'Card copied to clipboard — on desktop, open instagram.com → New Post → paste or upload 📸'
+      : 'Card saved — open instagram.com → New Post → upload from your downloads 📸');
   }
 }
 
