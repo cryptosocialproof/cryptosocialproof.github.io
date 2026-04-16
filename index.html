@@ -522,45 +522,55 @@
     .photo-drop-area.has-photo { border-color: #6366f1; background: #eef2ff; }
     .photo-drop-area.has-photo .photo-drop-text { color: #6366f1; }
 
-    /* ---- Photo pan/zoom controls ---- */
-    .photo-controls { margin-top: 12px; display: none; }
-    .photo-controls.visible { display: block; }
-    .photo-ctrl-row {
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 8px;
+    /* ---- Photo crop UI ---- */
+    .crop-ui { margin-top: 12px; display: none; }
+    .crop-ui.visible { display: block; }
+    .crop-frame {
+      width: 100%;
+      aspect-ratio: 1;
+      overflow: hidden;
+      border-radius: 10px;
+      border: 2px solid #e5e7eb;
+      background: #111;
+      position: relative;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
     }
-    .photo-ctrl-label {
-      font-size: 11px; font-weight: 700; color: #666;
-      width: 44px; flex-shrink: 0;
+    .crop-frame:active { cursor: grabbing; }
+    .crop-frame img {
+      position: absolute;
+      top: 50%; left: 50%;
+      min-width: 100%; min-height: 100%;
+      width: auto; height: auto;
+      max-width: none;
+      transform-origin: center center;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-select: none;
+      display: block;
     }
-    .photo-ctrl-slider {
-      flex: 1;
-      -webkit-appearance: none;
-      appearance: none;
-      height: 4px;
-      border-radius: 2px;
-      background: #e5e7eb;
-      outline: none;
-      cursor: pointer;
+    .crop-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 8px;
     }
-    .photo-ctrl-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      background: #6366f1;
-      cursor: pointer;
+    .crop-hint { font-size: 11px; color: #9ca3af; }
+    .crop-zoom-row { display: flex; align-items: center; gap: 6px; }
+    .crop-zoom-btn {
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 1.5px solid #e5e7eb; background: white;
+      font-size: 14px; line-height: 1; cursor: pointer;
+      color: #444; font-weight: 700; display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, color 0.15s;
     }
-    .photo-ctrl-slider::-moz-range-thumb {
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      background: #6366f1;
-      border: none;
-      cursor: pointer;
+    .crop-zoom-btn:hover { border-color: #6366f1; color: #6366f1; }
+    .crop-zoom-ind { font-size: 11px; color: #6b7280; width: 34px; text-align: center; font-weight: 600; }
+    .crop-reset-btn {
+      font-size: 11px; font-weight: 600; color: #9ca3af;
+      background: none; border: none; cursor: pointer; padding: 2px 4px;
     }
-    .photo-ctrl-val {
-      font-size: 11px; color: #9ca3af; width: 36px;
-      text-align: right; flex-shrink: 0;
-    }
+    .crop-reset-btn:hover { color: #6366f1; }
 
     /* ---- QR Code badge ---- */
     .card-qr {
@@ -713,21 +723,18 @@
           <div class="photo-drop-text" id="photo-drop-text">Click to upload a photo</div>
         </div>
       </label>
-      <div class="photo-controls" id="photo-controls">
-        <div class="photo-ctrl-row">
-          <span class="photo-ctrl-label">Zoom</span>
-          <input class="photo-ctrl-slider" type="range" id="ctrl-zoom" min="100" max="300" value="100" step="1" oninput="onPhotoCtrl()">
-          <span class="photo-ctrl-val" id="val-zoom">1×</span>
+      <div class="crop-ui" id="crop-ui">
+        <div class="crop-frame" id="crop-frame">
+          <img id="crop-img" draggable="false" alt="">
         </div>
-        <div class="photo-ctrl-row">
-          <span class="photo-ctrl-label">Pan X</span>
-          <input class="photo-ctrl-slider" type="range" id="ctrl-panx" min="-50" max="50" value="0" step="1" oninput="onPhotoCtrl()">
-          <span class="photo-ctrl-val" id="val-panx">0%</span>
-        </div>
-        <div class="photo-ctrl-row">
-          <span class="photo-ctrl-label">Pan Y</span>
-          <input class="photo-ctrl-slider" type="range" id="ctrl-pany" min="-50" max="50" value="0" step="1" oninput="onPhotoCtrl()">
-          <span class="photo-ctrl-val" id="val-pany">0%</span>
+        <div class="crop-footer">
+          <span class="crop-hint">Drag to pan · Scroll to zoom</span>
+          <div class="crop-zoom-row">
+            <button class="crop-zoom-btn" onclick="stepZoom(-0.1)" title="Zoom out">−</button>
+            <span class="crop-zoom-ind" id="crop-zoom-ind">100%</span>
+            <button class="crop-zoom-btn" onclick="stepZoom(0.1)" title="Zoom in">+</button>
+            <button class="crop-reset-btn" onclick="resetPhotoCrop()">Reset</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1184,14 +1191,11 @@ function resetApp() {
   if (photoInput) photoInput.value = '';
   document.getElementById('photo-upload-wrap').classList.add('hidden');
   photoZoom = 1; photoPanX = 0; photoPanY = 0;
-  const zoomEl = document.getElementById('ctrl-zoom');
-  const panxEl = document.getElementById('ctrl-panx');
-  const panyEl = document.getElementById('ctrl-pany');
-  if (zoomEl) { zoomEl.value = 100; document.getElementById('val-zoom').textContent = '1×'; }
-  if (panxEl) { panxEl.value = 0;   document.getElementById('val-panx').textContent = '0%'; }
-  if (panyEl) { panyEl.value = 0;   document.getElementById('val-pany').textContent = '0%'; }
-  const photoCtrl = document.getElementById('photo-controls');
-  if (photoCtrl) photoCtrl.classList.remove('visible');
+  const cropUiEl = document.getElementById('crop-ui');
+  if (cropUiEl) cropUiEl.classList.remove('visible');
+  const cropImgEl = document.getElementById('crop-img');
+  if (cropImgEl) cropImgEl.src = '';
+  updateCropFrame();
   selTheme    = 'dark';
   selSize     = 'square';
   selDecimals = 4;
@@ -1430,17 +1434,81 @@ function selectTheme(t) {
   renderCardPreview();
 }
 
-function onPhotoCtrl() {
-  const zoom = parseFloat(document.getElementById('ctrl-zoom').value);
-  const panx = parseFloat(document.getElementById('ctrl-panx').value);
-  const pany = parseFloat(document.getElementById('ctrl-pany').value);
-  document.getElementById('val-zoom').textContent = (zoom / 100).toFixed(2).replace(/\.?0+$/, '') + '×';
-  document.getElementById('val-panx').textContent = (panx > 0 ? '+' : '') + panx + '%';
-  document.getElementById('val-pany').textContent = (pany > 0 ? '+' : '') + pany + '%';
-  photoZoom = zoom / 100;
-  photoPanX = panx;
-  photoPanY = pany;
+// ═══════════════════════════════════════════
+//  CROP UI
+// ═══════════════════════════════════════════
+let _cropDragging = false;
+let _cropStartX = 0, _cropStartY = 0;
+let _cropStartPanX = 0, _cropStartPanY = 0;
+
+function updateCropFrame() {
+  const img = document.getElementById('crop-img');
+  if (!img) return;
+  img.style.transform =
+    `translate(calc(-50% + ${photoPanX}%), calc(-50% + ${photoPanY}%)) scale(${photoZoom})`;
+  const ind = document.getElementById('crop-zoom-ind');
+  if (ind) ind.textContent = Math.round(photoZoom * 100) + '%';
+}
+
+function stepZoom(delta) {
+  photoZoom = Math.max(1, Math.min(4, Math.round((photoZoom + delta) * 10) / 10));
+  updateCropFrame();
   renderCardPreview();
+}
+
+function resetPhotoCrop() {
+  photoZoom = 1; photoPanX = 0; photoPanY = 0;
+  updateCropFrame();
+  renderCardPreview();
+}
+
+function initCropInteraction() {
+  const frame = document.getElementById('crop-frame');
+  if (!frame) return;
+
+  // Mouse drag
+  frame.addEventListener('mousedown', e => {
+    _cropDragging = true;
+    _cropStartX = e.clientX; _cropStartY = e.clientY;
+    _cropStartPanX = photoPanX; _cropStartPanY = photoPanY;
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!_cropDragging) return;
+    const r = frame.getBoundingClientRect();
+    photoPanX = _cropStartPanX + (e.clientX - _cropStartX) / r.width  * 100 / photoZoom;
+    photoPanY = _cropStartPanY + (e.clientY - _cropStartY) / r.height * 100 / photoZoom;
+    updateCropFrame();
+    renderCardPreview();
+  });
+  window.addEventListener('mouseup', () => { _cropDragging = false; });
+
+  // Touch drag
+  frame.addEventListener('touchstart', e => {
+    _cropDragging = true;
+    _cropStartX = e.touches[0].clientX; _cropStartY = e.touches[0].clientY;
+    _cropStartPanX = photoPanX; _cropStartPanY = photoPanY;
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('touchmove', e => {
+    if (!_cropDragging) return;
+    const r = frame.getBoundingClientRect();
+    photoPanX = _cropStartPanX + (e.touches[0].clientX - _cropStartX) / r.width  * 100 / photoZoom;
+    photoPanY = _cropStartPanY + (e.touches[0].clientY - _cropStartY) / r.height * 100 / photoZoom;
+    updateCropFrame();
+    renderCardPreview();
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('touchend', () => { _cropDragging = false; });
+
+  // Scroll to zoom
+  frame.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    photoZoom = Math.max(1, Math.min(4, Math.round((photoZoom + delta) * 10) / 10));
+    updateCropFrame();
+    renderCardPreview();
+  }, { passive: false });
 }
 
 function handlePhotoUpload(e) {
@@ -1452,7 +1520,11 @@ function handlePhotoUpload(e) {
     const area = document.getElementById('photo-drop-area');
     area.classList.add('has-photo');
     document.getElementById('photo-drop-text').textContent = file.name;
-    document.getElementById('photo-controls').classList.add('visible');
+    const cropImg = document.getElementById('crop-img');
+    if (cropImg) cropImg.src = photoDataUrl;
+    photoZoom = 1; photoPanX = 0; photoPanY = 0;
+    updateCropFrame();
+    document.getElementById('crop-ui').classList.add('visible');
     renderCardPreview();
   };
   reader.readAsDataURL(file);
@@ -1739,6 +1811,9 @@ async function exportCard() {
     overlay.classList.remove('visible');
   }
 }
+
+// Init crop interaction once DOM is ready
+initCropInteraction();
 </script>
 </body>
 </html>
