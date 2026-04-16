@@ -311,6 +311,54 @@
     }
     .dl-btn:hover { background: #4f46e5; }
 
+    /* ---- Copy button ---- */
+    .copy-btn {
+      flex: 0 0 auto;
+      padding: 12px 16px;
+      background: none;
+      border: 2px solid #6366f1;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #6366f1;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .copy-btn:hover { background: #6366f1; color: white; }
+    .copy-btn.copied { background: #22c55e; border-color: #22c55e; color: white; }
+
+    /* ---- Share row ---- */
+    .share-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+    }
+    .share-label { font-size: 12px; font-weight: 600; color: #aaa; margin-right: 2px; }
+    .share-btn {
+      width: 38px; height: 38px;
+      border-radius: 9px; border: none;
+      font-size: 15px; font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    .share-btn:hover { opacity: 0.85; transform: scale(1.06); }
+    .share-x  { background: #000; color: #fff; font-size: 17px; letter-spacing: -0.05em; }
+    .share-fb { background: #1877f2; color: #fff; font-size: 19px; font-family: Georgia, serif; }
+    .share-ig {
+      background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      color: #fff; font-size: 13px; font-weight: 800; letter-spacing: -0.02em;
+    }
+
+    /* ---- USD value in cards ---- */
+    .card-usd { font-size: 0.72em; opacity: 0.55; font-weight: 500; margin-top: 4px; letter-spacing: 0.01em; }
+    .rcp-usd  { font-size: 11px; color: #999; text-align: right; margin-top: 4px; }
+
     /* ---- Export overlay ---- */
     .export-overlay {
       display: none;
@@ -656,6 +704,13 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Show USD value <span style="font-size:11px;color:#bbb;font-weight:400">(approx. at time of tx)</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="tog-usd">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
 
     <button class="primary-btn" id="to-card-btn">Choose Card Style →</button>
@@ -733,6 +788,13 @@
 
     <div class="action-row">
       <button class="dl-btn" onclick="exportCard()">⬇ Download PNG</button>
+      <button class="copy-btn" id="copy-btn" onclick="copyCard()">⎘ Copy</button>
+    </div>
+    <div class="share-row">
+      <span class="share-label">Share:</span>
+      <button class="share-btn share-x"  onclick="shareToX()"         title="Share on X">𝕏</button>
+      <button class="share-btn share-fb" onclick="shareToFacebook()"   title="Share on Facebook">f</button>
+      <button class="share-btn share-ig" onclick="shareToInstagram()"  title="Share on Instagram">IG</button>
     </div>
   </div>
 
@@ -1092,17 +1154,31 @@ async function parseTx(sig) {
   else if (logStr.includes('Orca'))      platform = 'Orca';
   else if (logStr.includes('Raydium'))   platform = 'Raydium';
 
-  // ── SOL / USD price ───────────────────────────────────────────────────
-  let solPrice = null;
-  try {
-    const res  = await fetchWithTimeout('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {}, 8000);
-    const data = await res.json();
-    solPrice   = data?.solana?.usd ?? null;
-  } catch (_) { /* will show manual USD input */ }
-
+  // ── USD value (historical at time of tx) ─────────────────────────────
+  const STABLE_SYMS = new Set(['USDC', 'USDT', 'PYUSD', 'USDY']);
   let usdValue = null;
-  if (solPrice !== null && Math.abs(solDelta) > 0.0001) {
-    usdValue = Math.abs(solDelta) * solPrice;
+
+  // 1) If any token in the tx is a stablecoin, its amount IS the USD value
+  for (const c of tokenChanges) {
+    if (STABLE_SYMS.has(c.symbol)) {
+      usdValue = Math.abs(c.delta);
+      break;
+    }
+  }
+
+  // 2) SOL involved but no stablecoin found — fetch CoinGecko historical price
+  if (usdValue === null && Math.abs(solDelta) > 0.001) {
+    try {
+      const txDate = new Date(blockTime * 1000);
+      const dd   = String(txDate.getUTCDate()).padStart(2, '0');
+      const mm   = String(txDate.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = txDate.getUTCFullYear();
+      const res  = await fetchWithTimeout(
+        `https://api.coingecko.com/api/v3/coins/solana/history?date=${dd}-${mm}-${yyyy}&localization=false`, {}, 10000);
+      const data  = await res.json();
+      const price = data?.market_data?.current_price?.usd ?? null;
+      if (price !== null) usdValue = Math.abs(solDelta) * price;
+    } catch (_) {}
   }
 
   return {
@@ -1113,7 +1189,6 @@ async function parseTx(sig) {
     tokenChanges,
     solDelta,
     usdValue,
-    solPriceMissing: solPrice === null,
   };
 }
 
@@ -1158,6 +1233,7 @@ function resetApp() {
   document.getElementById('tog-wallet').checked   = false;
   document.getElementById('tog-platform').checked = true;
   document.getElementById('tog-qr').checked       = true;
+  document.getElementById('tog-usd').checked      = false;
   const dropArea = document.getElementById('photo-drop-area');
   if (dropArea) dropArea.classList.remove('has-photo');
   const dropText = document.getElementById('photo-drop-text');
@@ -1188,6 +1264,14 @@ function fmtAmt(n) {
   if (a >= 1e6) return (a/1e6).toLocaleString('en-US', { maximumFractionDigits: Math.min(dp, 2) }) + 'M';
   if (a >= 1e3) return a.toLocaleString('en-US', { maximumFractionDigits: Math.min(dp, 2) });
   return parseFloat(a.toFixed(dp)).toLocaleString('en-US', { maximumFractionDigits: dp });
+}
+
+function fmtUsd(v) {
+  if (v == null || v <= 0) return null;
+  if (v >= 1e6) return '$' + (v / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'M';
+  if (v >= 1e3) return '$' + Math.round(v).toLocaleString('en-US');
+  if (v >= 1)   return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 }
 
 // ═══════════════════════════════════════════
@@ -1355,6 +1439,10 @@ function renderConfirm() {
     html += row('Wallet', `<span style="font-family:monospace;font-size:12px">${wallet}</span>`);
   }
 
+  if (txData.usdValue != null) {
+    html += row('USD Value', `<span style="color:#888">≈ ${fmtUsd(txData.usdValue)}</span>`);
+  }
+
   const platRow = document.getElementById('tog-platform-row');
   if (platform) {
     platRow.style.display = '';
@@ -1382,7 +1470,7 @@ function selectDecimals(d) {
   if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
 }
 
-['tog-wallet','tog-platform','tog-qr'].forEach(id => {
+['tog-wallet','tog-platform','tog-qr','tog-usd'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     renderConfirm();
     if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
@@ -1542,9 +1630,10 @@ function selectSize(s) {
 //  CARD DATA
 // ═══════════════════════════════════════════
 function getCardPayload() {
-  const { type, date, wallet, platform, tokenChanges, solDelta } = txData;
-  const showW = document.getElementById('tog-wallet').checked;
-  const showP = document.getElementById('tog-platform').checked;
+  const { type, date, wallet, platform, tokenChanges, solDelta, usdValue } = txData;
+  const showW   = document.getElementById('tog-wallet').checked;
+  const showP   = document.getElementById('tog-platform').checked;
+  const showUsd = document.getElementById('tog-usd').checked;
 
   let primary = null, secondary = null;
 
@@ -1569,7 +1658,8 @@ function getCardPayload() {
     wallet:   showW ? wallet : null,
     platform: showP ? platform : null,
     primary, secondary,
-    amtColor
+    amtColor,
+    usdValue: (showUsd && usdValue != null) ? fmtUsd(usdValue) : null,
   };
 }
 
@@ -1591,9 +1681,11 @@ function cardDark(d, w, h, qrSvg = '') {
       <div style="color:rgba(255,255,255,0.35);font-size:1.4rem;margin:0.15em 0">↓</div>
       <div class="main-amt c-green" style="font-size:clamp(2rem,11vw,4.2rem)">+${d.secondary.amount}</div>
       <div class="token-name">${d.secondary.symbol}</div>
+      ${d.usdValue ? `<div class="card-usd">≈ ${d.usdValue}</div>` : ''}
     ` : d.primary ? `
       <div class="main-amt ${ac}">${d.primary.amount}</div>
       <div class="token-name">${d.primary.symbol}</div>
+      ${d.usdValue ? `<div class="card-usd">≈ ${d.usdValue}</div>` : ''}
     ` : ''}
   </div>
   <div class="card-footer">
@@ -1628,6 +1720,7 @@ function cardReceipt(d, w, h, qrSvg = '') {
   ${d.wallet   ? `<div class="rcp-row"><span class="rcp-k">WALLET</span><span class="rcp-v">${d.wallet}</span></div>` : ''}
   ${d.platform ? `<div class="rcp-row"><span class="rcp-k">VIA</span><span class="rcp-v">${d.platform}</span></div>` : ''}
   <div class="rcp-total"><span>TOTAL</span><span>${total}</span></div>
+  ${d.usdValue ? `<div class="rcp-usd">≈ ${d.usdValue} USD</div>` : ''}
   <div class="csp-wm">cryptosocialproof.com</div>
 </div>`;
 }
@@ -1645,9 +1738,11 @@ function cardMeme(d, w, h, qrSvg = '') {
     <div style="color:rgba(255,255,255,0.4);font-size:1.2rem;margin:0.2em 0">↓</div>
     <div class="meme-amt" style="font-size:clamp(2rem,12vw,4rem)">${d.secondary.amount}</div>
     <div class="meme-token">${d.secondary.symbol}</div>
+    ${d.usdValue ? `<div class="card-usd">≈ ${d.usdValue}</div>` : ''}
   ` : d.primary ? `
     <div class="meme-amt">${d.primary.amount}</div>
     <div class="meme-token">${d.primary.symbol}</div>
+    ${d.usdValue ? `<div class="card-usd">≈ ${d.usdValue}</div>` : ''}
   ` : ''}
   <div class="meme-meta">${meta}</div>
   <div class="csp-wm">cryptosocialproof.com</div>
@@ -1671,6 +1766,7 @@ function cardSwap(d, w, h, qrSvg = '') {
     <div class="swap-amt">${d.secondary.amount}</div>
   </div>
   <div class="swap-foot">${meta.map(m => `<span>${m}</span>`).join('')}</div>
+  ${d.usdValue ? `<div class="card-usd" style="text-align:center;padding-bottom:4px">≈ ${d.usdValue}</div>` : ''}
   <div class="csp-wm">cryptosocialproof.com</div>
 </div>`;
 }
@@ -1735,7 +1831,7 @@ function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0
     ${rowsHtml}
     <div class="photo-meta">
       <span class="photo-type">${d.type}</span>
-      <span class="photo-date">${d.date}${d.platform ? ' · ' + d.platform : ''}</span>
+      <span class="photo-date">${d.date}${d.platform ? ' · ' + d.platform : ''}${d.usdValue ? ' · ≈ ' + d.usdValue : ''}</span>
     </div>
     ${d.wallet ? `<div style="font-size:10px;color:rgba(255,255,255,0.55);font-family:'Courier New',monospace;margin-top:2px">${d.wallet}</div>` : ''}
   </div>
@@ -1772,61 +1868,135 @@ async function renderCardPreview() {
 }
 
 // ═══════════════════════════════════════════
-//  EXPORT
+//  EXPORT / COPY / SHARE
 // ═══════════════════════════════════════════
-async function exportCard() {
-  const cardEl = document.getElementById('card-preview').firstElementChild;
-  if (!cardEl || typeof html2canvas === 'undefined') {
-    alert('Export library not loaded. Please refresh and try again.');
-    return;
-  }
 
-  const overlay = document.getElementById('export-overlay');
-  overlay.classList.add('visible');
+// Shared: renders the card to a high-res canvas and returns it.
+async function renderToCanvas() {
+  const cardEl = document.getElementById('card-preview').firstElementChild;
+  if (!cardEl || typeof html2canvas === 'undefined') throw new Error('Export library not loaded.');
 
   const TARGET_W = 1080;
   const TARGET_H = selSize === 'portrait' ? 1350 : 1080;
+  const dispW    = cardEl.offsetWidth;
+  const dispH    = cardEl.offsetHeight;
 
+  const srcCanvas = await html2canvas(cardEl, {
+    scale: 2.5, useCORS: true, backgroundColor: null,
+    width: dispW, height: dispH, logging: false
+  });
+
+  const final = document.createElement('canvas');
+  final.width  = TARGET_W;
+  final.height = TARGET_H;
+  const ctx = final.getContext('2d');
+  ctx.fillStyle = getComputedStyle(cardEl).backgroundColor || '#111111';
+  ctx.fillRect(0, 0, TARGET_W, TARGET_H);
+
+  const scaleToFit = Math.min(TARGET_W / dispW, TARGET_H / dispH);
+  const dstW = dispW * scaleToFit, dstH = dispH * scaleToFit;
+  const dstX = (TARGET_W - dstW) / 2, dstY = (TARGET_H - dstH) / 2;
+  ctx.drawImage(srcCanvas, 0, 0, srcCanvas.width, srcCanvas.height, dstX, dstY, dstW, dstH);
+  return final;
+}
+
+async function exportCard() {
+  const overlay = document.getElementById('export-overlay');
+  overlay.classList.add('visible');
   try {
-    const dispW = cardEl.offsetWidth;
-    const dispH = cardEl.offsetHeight;
-
-    const srcCanvas = await html2canvas(cardEl, {
-      scale:           2.5,
-      useCORS:         true,
-      backgroundColor: null,
-      width:           dispW,
-      height:          dispH,
-      logging:         false
-    });
-
-    const final = document.createElement('canvas');
-    final.width  = TARGET_W;
-    final.height = TARGET_H;
-    const ctx = final.getContext('2d');
-
-    const bg = getComputedStyle(cardEl).backgroundColor || '#111111';
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, TARGET_W, TARGET_H);
-
-    const scaleToFit = Math.min(TARGET_W / dispW, TARGET_H / dispH);
-    const dstW = dispW * scaleToFit;
-    const dstH = dispH * scaleToFit;
-    const dstX = (TARGET_W - dstW) / 2;
-    const dstY = (TARGET_H - dstH) / 2;
-
-    ctx.drawImage(srcCanvas, 0, 0, srcCanvas.width, srcCanvas.height, dstX, dstY, dstW, dstH);
-
-    const link  = document.createElement('a');
-    const fname = `cryptosocialproof_${txData.type.toLowerCase()}_${Date.now()}.png`;
-    link.download = fname;
-    link.href     = final.toDataURL('image/png');
+    const canvas = await renderToCanvas();
+    const link   = document.createElement('a');
+    link.download = `cryptosocialproof_${txData.type.toLowerCase()}_${Date.now()}.png`;
+    link.href     = canvas.toDataURL('image/png');
     link.click();
   } catch (e) {
     console.error('Export failed:', e);
-    alert('Export failed — please try again.');
+    alert(e.message || 'Export failed — please try again.');
   } finally {
     overlay.classList.remove('visible');
+  }
+}
+
+async function copyCard() {
+  if (!navigator.clipboard?.write) {
+    alert('Clipboard write is not supported in this browser. Please use the Download button instead.');
+    return;
+  }
+  const btn     = document.getElementById('copy-btn');
+  const overlay = document.getElementById('export-overlay');
+  overlay.classList.add('visible');
+  try {
+    const canvas = await renderToCanvas();
+    await new Promise((resolve, reject) => {
+      canvas.toBlob(async blob => {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          resolve();
+        } catch (e) { reject(e); }
+      }, 'image/png');
+    });
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '⎘ Copy'; btn.classList.remove('copied'); }, 2000);
+  } catch (e) {
+    console.error('Copy failed:', e);
+    alert('Could not copy to clipboard. Try downloading instead.');
+  } finally {
+    overlay.classList.remove('visible');
+  }
+}
+
+async function shareToX() {
+  const d = getCardPayload();
+  let text;
+  if (d.type === 'SWAP' && d.primary && d.secondary) {
+    text = `Just swapped ${d.primary.amount} ${d.primary.symbol} → ${d.secondary.amount} ${d.secondary.symbol} on Solana 🔄`;
+  } else if (d.primary) {
+    const verb = { BUY: 'bought', SELL: 'sold', RECEIVE: 'received', SEND: 'sent', STAKE: 'staked' }[d.type] || d.type.toLowerCase() + 'ed';
+    text = `Just ${verb} ${d.primary.amount} ${d.primary.symbol} on Solana`;
+  } else {
+    text = `Solana ${d.type} transaction`;
+  }
+  if (d.usdValue) text += ` (${d.usdValue})`;
+  text += '\n\n#Solana #Crypto';
+  try {
+    const url = await buildVerifyUrl(d);
+    text += `\n\n🔗 ${url}`;
+  } catch (_) {}
+  window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+}
+
+async function shareToFacebook() {
+  const d = getCardPayload();
+  let shareUrl = window.location.origin + window.location.pathname;
+  try { shareUrl = await buildVerifyUrl(d); } catch (_) {}
+  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank', 'width=600,height=400');
+}
+
+async function shareToInstagram() {
+  // Instagram has no web share API on desktop — use Web Share API on mobile, otherwise prompt download
+  if (navigator.share) {
+    const overlay = document.getElementById('export-overlay');
+    overlay.classList.add('visible');
+    let canvas;
+    try { canvas = await renderToCanvas(); } catch (e) { overlay.classList.remove('visible'); alert(e.message); return; }
+    overlay.classList.remove('visible');
+    canvas.toBlob(async blob => {
+      const file = new File([blob], 'cryptosocialproof.png', { type: 'image/png' });
+      try {
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'My Solana Transaction' });
+        } else {
+          await navigator.share({ title: 'CryptoSocialProof', url: window.location.href });
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') alert('Could not share. Please download and post to Instagram manually.');
+      }
+    }, 'image/png');
+  } else {
+    // Desktop fallback: download the card, then prompt user
+    await exportCard();
+    setTimeout(() => alert('Image downloaded!\n\nOpen Instagram and share it from your gallery or camera roll.'), 600);
   }
 }
 
