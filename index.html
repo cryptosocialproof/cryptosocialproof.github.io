@@ -541,15 +541,10 @@
     .crop-frame:active { cursor: grabbing; }
     .crop-frame img {
       position: absolute;
-      top: 50%; left: 50%;
-      min-width: 100%; min-height: 100%;
-      width: auto; height: auto;
-      max-width: none;
-      transform-origin: center center;
+      display: block;
       pointer-events: none;
       user-select: none;
       -webkit-user-select: none;
-      display: block;
     }
     .crop-footer {
       display: flex; align-items: center; justify-content: space-between;
@@ -1152,10 +1147,12 @@ let selTheme    = 'dark';
 let selSize     = 'square';
 let selDecimals = 4;
 let maxStep     = 0;
-let photoDataUrl = null;
-let photoZoom    = 1;
-let photoPanX    = 0;
-let photoPanY    = 0;
+let photoDataUrl  = null;
+let photoNaturalW = 0;   // image's natural pixel width
+let photoNaturalH = 0;   // image's natural pixel height
+let photoZoom     = 1;   // scale factor (1 = fit-to-contain)
+let photoPanX     = 0;   // pan as fraction of rendered-at-zoom-1 image width
+let photoPanY     = 0;   // pan as fraction of rendered-at-zoom-1 image height
 
 // ═══════════════════════════════════════════
 //  NAVIGATION
@@ -1190,6 +1187,7 @@ function resetApp() {
   const photoInput = document.getElementById('photo-input');
   if (photoInput) photoInput.value = '';
   document.getElementById('photo-upload-wrap').classList.add('hidden');
+  photoNaturalW = 0; photoNaturalH = 0;
   photoZoom = 1; photoPanX = 0; photoPanY = 0;
   const cropUiEl = document.getElementById('crop-ui');
   if (cropUiEl) cropUiEl.classList.remove('visible');
@@ -1441,11 +1439,40 @@ let _cropDragging = false;
 let _cropStartX = 0, _cropStartY = 0;
 let _cropStartPanX = 0, _cropStartPanY = 0;
 
+// Given a container size and the image's natural dimensions, compute the
+// "contain" fit size (like object-fit: contain).
+function photoFitSize(cW, cH) {
+  if (!photoNaturalW || !photoNaturalH) return { w: cW, h: cH };
+  const ia = photoNaturalW / photoNaturalH;
+  const ca = cW / cH;
+  return ia > ca
+    ? { w: cW,            h: cW / ia }
+    : { w: cH * ia,       h: cH      };
+}
+
+// Apply current zoom/pan to the crop-frame img using explicit px values.
+// Pan is stored as fraction of fit-size (zoom=1), so it scales proportionally
+// to any container.
 function updateCropFrame() {
-  const img = document.getElementById('crop-img');
-  if (!img) return;
-  img.style.transform =
-    `translate(calc(-50% + ${photoPanX}%), calc(-50% + ${photoPanY}%)) scale(${photoZoom})`;
+  const img   = document.getElementById('crop-img');
+  const frame = document.getElementById('crop-frame');
+  if (!img || !frame || !photoNaturalW) return;
+
+  const cW  = frame.offsetWidth;
+  const cH  = frame.offsetHeight;
+  const fit = photoFitSize(cW, cH);
+
+  const dispW = fit.w * photoZoom;
+  const dispH = fit.h * photoZoom;
+  // pan fraction × fit size = pixel offset from center
+  const panXpx = photoPanX * fit.w;
+  const panYpx = photoPanY * fit.h;
+
+  img.style.width  = dispW + 'px';
+  img.style.height = dispH + 'px';
+  img.style.left   = ((cW - dispW) / 2 + panXpx) + 'px';
+  img.style.top    = ((cH - dispH) / 2 + panYpx) + 'px';
+
   const ind = document.getElementById('crop-zoom-ind');
   if (ind) ind.textContent = Math.round(photoZoom * 100) + '%';
 }
@@ -1466,7 +1493,6 @@ function initCropInteraction() {
   const frame = document.getElementById('crop-frame');
   if (!frame) return;
 
-  // Mouse drag
   frame.addEventListener('mousedown', e => {
     _cropDragging = true;
     _cropStartX = e.clientX; _cropStartY = e.clientY;
@@ -1475,15 +1501,16 @@ function initCropInteraction() {
   });
   window.addEventListener('mousemove', e => {
     if (!_cropDragging) return;
-    const r = frame.getBoundingClientRect();
-    photoPanX = _cropStartPanX + (e.clientX - _cropStartX) / r.width  * 100 / photoZoom;
-    photoPanY = _cropStartPanY + (e.clientY - _cropStartY) / r.height * 100 / photoZoom;
+    const r   = frame.getBoundingClientRect();
+    const fit = photoFitSize(r.width, r.height);
+    // delta px → fraction of fit size (so it's container-independent)
+    photoPanX = _cropStartPanX + (e.clientX - _cropStartX) / fit.w / photoZoom;
+    photoPanY = _cropStartPanY + (e.clientY - _cropStartY) / fit.h / photoZoom;
     updateCropFrame();
     renderCardPreview();
   });
   window.addEventListener('mouseup', () => { _cropDragging = false; });
 
-  // Touch drag
   frame.addEventListener('touchstart', e => {
     _cropDragging = true;
     _cropStartX = e.touches[0].clientX; _cropStartY = e.touches[0].clientY;
@@ -1492,16 +1519,16 @@ function initCropInteraction() {
   }, { passive: false });
   window.addEventListener('touchmove', e => {
     if (!_cropDragging) return;
-    const r = frame.getBoundingClientRect();
-    photoPanX = _cropStartPanX + (e.touches[0].clientX - _cropStartX) / r.width  * 100 / photoZoom;
-    photoPanY = _cropStartPanY + (e.touches[0].clientY - _cropStartY) / r.height * 100 / photoZoom;
+    const r   = frame.getBoundingClientRect();
+    const fit = photoFitSize(r.width, r.height);
+    photoPanX = _cropStartPanX + (e.touches[0].clientX - _cropStartX) / fit.w / photoZoom;
+    photoPanY = _cropStartPanY + (e.touches[0].clientY - _cropStartY) / fit.h / photoZoom;
     updateCropFrame();
     renderCardPreview();
     e.preventDefault();
   }, { passive: false });
   window.addEventListener('touchend', () => { _cropDragging = false; });
 
-  // Scroll to zoom
   frame.addEventListener('wheel', e => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
@@ -1517,15 +1544,26 @@ function handlePhotoUpload(e) {
   const reader = new FileReader();
   reader.onload = ev => {
     photoDataUrl = ev.target.result;
-    const area = document.getElementById('photo-drop-area');
-    area.classList.add('has-photo');
-    document.getElementById('photo-drop-text').textContent = file.name;
-    const cropImg = document.getElementById('crop-img');
-    if (cropImg) cropImg.src = photoDataUrl;
-    photoZoom = 1; photoPanX = 0; photoPanY = 0;
-    updateCropFrame();
-    document.getElementById('crop-ui').classList.add('visible');
-    renderCardPreview();
+    // Read natural dimensions before doing anything else
+    const probe = new Image();
+    probe.onload = () => {
+      photoNaturalW = probe.naturalWidth;
+      photoNaturalH = probe.naturalHeight;
+
+      const area = document.getElementById('photo-drop-area');
+      area.classList.add('has-photo');
+      document.getElementById('photo-drop-text').textContent = file.name;
+      const cropImg = document.getElementById('crop-img');
+      if (cropImg) cropImg.src = photoDataUrl;
+      photoZoom = 1; photoPanX = 0; photoPanY = 0;
+      document.getElementById('crop-ui').classList.add('visible');
+      // Wait one frame so the crop frame is visible and has dimensions
+      requestAnimationFrame(() => {
+        updateCropFrame();
+        renderCardPreview();
+      });
+    };
+    probe.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -1675,7 +1713,7 @@ function cardSwap(d, w, h, qrSvg = '') {
 </div>`;
 }
 
-function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0) {
+function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0, natW = 0, natH = 0) {
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   const barH   = Math.round(h * (isSwap ? 0.30 : 0.24));
   const photoH = h - barH;
@@ -1700,14 +1738,32 @@ function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0
       </div>`;
   }
 
-  const photoEl = photo
-    ? `<div style="height:${photoH}px;overflow:hidden;position:relative;">
-        <img class="photo-img" src="${photo}"
-          style="position:absolute;top:50%;left:50%;
-                 transform:translate(calc(-50% + ${panX}%),calc(-50% + ${panY}%)) scale(${zoom});
-                 min-width:100%;min-height:100%;max-width:none;width:auto;height:auto;" alt="">
-       </div>`
-    : `<div class="photo-placeholder" style="height:${photoH}px"></div>`;
+  // Compute explicit px layout (same logic as updateCropFrame) so crop UI
+  // and card always show identical framing regardless of container shape.
+  let photoEl;
+  if (photo) {
+    let fitW, fitH;
+    if (natW && natH) {
+      const ia = natW / natH;
+      const ca = w / photoH;
+      if (ia > ca) { fitW = w;          fitH = w / ia;   }
+      else         { fitW = photoH * ia; fitH = photoH;   }
+    } else {
+      fitW = w; fitH = photoH;
+    }
+    const dispW   = fitW * zoom;
+    const dispH   = fitH * zoom;
+    const panXpx  = panX * fitW;
+    const panYpx  = panY * fitH;
+    const imgLeft = (w      - dispW) / 2 + panXpx;
+    const imgTop  = (photoH - dispH) / 2 + panYpx;
+    photoEl = `<div style="height:${photoH}px;overflow:hidden;position:relative;background:#0d0d0d;">` +
+      `<img class="photo-img" src="${photo}" ` +
+      `style="position:absolute;left:${imgLeft}px;top:${imgTop}px;width:${dispW}px;height:${dispH}px;max-width:none;max-height:none;" alt="">` +
+      `</div>`;
+  } else {
+    photoEl = `<div class="photo-placeholder" style="height:${photoH}px"></div>`;
+  }
 
   return `
 <div class="card-root t-photo" style="width:${w}px;height:${h}px">
@@ -1747,7 +1803,7 @@ async function renderCardPreview() {
     case 'receipt': html = cardReceipt(d, W, H, qrSvg);               break;
     case 'meme':    html = cardMeme(d, W, H, qrSvg);                  break;
     case 'swap':    html = cardSwap(d, W, H, qrSvg);                  break;
-    case 'photo':   html = cardPhoto(d, W, H, qrSvg, photoDataUrl, photoZoom, photoPanX, photoPanY);   break;
+    case 'photo':   html = cardPhoto(d, W, H, qrSvg, photoDataUrl, photoZoom, photoPanX, photoPanY, photoNaturalW, photoNaturalH);   break;
     default:        html = cardDark(d, W, H, qrSvg);
   }
   document.getElementById('card-preview').innerHTML = html;
