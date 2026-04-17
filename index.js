@@ -422,7 +422,6 @@ function resetApp() {
   document.getElementById('card-preview').innerHTML = '';
   document.getElementById('tog-wallet').checked   = false;
   document.getElementById('tog-platform').checked = true;
-  document.getElementById('tog-qr').checked       = true;
   document.getElementById('tog-usd').checked      = false;
   const dropArea = document.getElementById('photo-drop-area');
   if (dropArea) dropArea.classList.remove('has-photo');
@@ -486,37 +485,7 @@ function b64url(buf) {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-async function buildVerifyUrl(d) {
-  const payload = { v: 1, t: d.type, d: d.date };
-  if (d.primary)   payload.p = `${d.primary.amount} ${d.primary.symbol}`;
-  if (d.secondary) payload.s = `${d.secondary.amount} ${d.secondary.symbol}`;
 
-  const json = JSON.stringify(payload);
-  const enc  = new TextEncoder();
-  const key  = await getHmacKey();
-  const sig  = await crypto.subtle.sign('HMAC', key, enc.encode(json));
-  const hmac = b64url(sig);
-  const data = b64url(enc.encode(json));
-
-  // Derive base URL from current page, replacing filename with verify.html
-  const base = window.location.href.replace(/\/[^/?#]*([?#].*)?$/, '/');
-  return `${base}verify.html#${data}.${hmac}`;
-}
-
-function makeQrSvg(url) {
-  try {
-    const qr = qrcode(0, 'M');
-    qr.addData(url);
-    qr.make();
-    return qr.createSvgTag(2, 0);
-  } catch (_) {
-    // URL too long for type 0 auto, try explicit type 6
-    const qr = qrcode(6, 'M');
-    qr.addData(url);
-    qr.make();
-    return qr.createSvgTag(2, 0);
-  }
-}
 
 // Clickable nav bar — clicking a completed step navigates back to it.
 // Step 1 (Fetching) is excluded since it's a transient loading state.
@@ -660,7 +629,7 @@ function selectDecimals(d) {
   if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
 }
 
-['tog-wallet','tog-platform','tog-qr','tog-usd'].forEach(id => {
+['tog-wallet','tog-platform','tog-usd'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     renderConfirm();
     if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
@@ -856,13 +825,12 @@ function getCardPayload() {
 // ═══════════════════════════════════════════
 //  CARD RENDERERS
 // ═══════════════════════════════════════════
-function cardDark(d, w, h, qrSvg = '') {
+function cardDark(d, w, h) {
   const tc     = d.type.toLowerCase();
   const ac     = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : 'c-white';
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   return `
 <div class="card-root t-dark" style="width:${w}px;height:${h}px">
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div>
     <div class="type-pill pill-${tc}">${d.type}</div>
     ${isSwap ? `
@@ -887,7 +855,7 @@ function cardDark(d, w, h, qrSvg = '') {
 </div>`;
 }
 
-function cardReceipt(d, w, h, qrSvg = '') {
+function cardReceipt(d, w, h) {
   let tRows = '';
   if (d.type === 'SWAP' && d.primary && d.secondary) {
     tRows += `<div class="rcp-row"><span class="rcp-k">SOLD</span><span class="rcp-v">${d.primary.amount} ${d.primary.symbol}</span></div>`;
@@ -900,7 +868,6 @@ function cardReceipt(d, w, h, qrSvg = '') {
     : d.primary ? `${d.primary.amount} ${d.primary.symbol}` : '–';
   return `
 <div class="card-root t-receipt" style="width:${w}px;height:${h}px">
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="rcp-hdr">
     <div class="rcp-title">TRANSACTION RECEIPT</div>
     <div class="rcp-date">${d.date}</div>
@@ -915,12 +882,11 @@ function cardReceipt(d, w, h, qrSvg = '') {
 </div>`;
 }
 
-function cardMeme(d, w, h, qrSvg = '') {
+function cardMeme(d, w, h) {
   const meta   = [d.date, d.wallet, d.platform].filter(Boolean).join(' · ');
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   return `
 <div class="card-root t-meme" style="width:${w}px;height:${h}px">
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="meme-type">${d.type}</div>
   ${isSwap ? `
     <div class="meme-amt" style="font-size:clamp(2rem,12vw,4rem)">${d.primary.amount}</div>
@@ -939,12 +905,11 @@ function cardMeme(d, w, h, qrSvg = '') {
 </div>`;
 }
 
-function cardFlow(d, w, h, qrSvg = '') {
-  if (d.type !== 'SWAP' || !d.primary || !d.secondary) return cardDark(d, w, h, qrSvg);
+function cardFlow(d, w, h) {
+  if (d.type !== 'SWAP' || !d.primary || !d.secondary) return cardDark(d, w, h);
   const meta = [d.date, d.wallet, d.platform].filter(Boolean);
   return `
 <div class="card-root t-flow" style="width:${w}px;height:${h}px">
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="swap-hdr">SWAP</div>
   <div class="swap-row">
     <div class="swap-pill">${d.primary.symbol}</div>
@@ -961,7 +926,7 @@ function cardFlow(d, w, h, qrSvg = '') {
 </div>`;
 }
 
-function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0, natW = 0, natH = 0) {
+function cardPhoto(d, w, h, photo = '', zoom = 1, panX = 0, panY = 0, natW = 0, natH = 0) {
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   const barH   = Math.round(h * (isSwap ? 0.30 : 0.24));
   const photoH = h - barH;
@@ -1016,7 +981,6 @@ function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0
   return `
 <div class="card-root t-photo" style="width:${w}px;height:${h}px">
   ${photoEl}
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="photo-bar" style="height:${barH}px">
     ${rowsHtml}
     <div class="photo-meta">
@@ -1030,7 +994,7 @@ function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0
 }
 
 // ── Neon theme ──────────────────────────────────────────────────────────
-function cardNeon(d, w, h, qrSvg = '') {
+function cardNeon(d, w, h) {
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   const ac     = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : 'c-white';
 
@@ -1055,7 +1019,6 @@ function cardNeon(d, w, h, qrSvg = '') {
 
   return `
 <div class="card-root t-neon" style="width:${w}px;height:${h}px">
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="neon-inner">
     <div class="neon-label">Solana Blockchain</div>
     <div class="neon-decos">
@@ -1087,7 +1050,7 @@ function cardNeon(d, w, h, qrSvg = '') {
 }
 
 // ── Terminal theme ──────────────────────────────────────────────────────────
-function cardTerminal(d, w, h, qrSvg = '') {
+function cardTerminal(d, w, h) {
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   const ac = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : '';
 
@@ -1114,7 +1077,6 @@ function cardTerminal(d, w, h, qrSvg = '') {
 
   return `
 <div class="card-root t-terminal" style="width:${w}px;height:${h}px">
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="term-inner">
     <div class="term-prompt">$ solana verify --sig ${shortSig}<span class="term-cursor"></span></div>
     <div class="term-type-line">&gt; ${d.type}</div>
@@ -1127,7 +1089,7 @@ function cardTerminal(d, w, h, qrSvg = '') {
 }
 
 // ── Aurora theme ────────────────────────────────────────────────────────────
-function cardAurora(d, w, h, qrSvg = '') {
+function cardAurora(d, w, h) {
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   const ac = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : '';
   const footer = [d.date, d.platform, d.wallet].filter(Boolean).join('  ·  ');
@@ -1148,7 +1110,6 @@ function cardAurora(d, w, h, qrSvg = '') {
 
   return `
 <div class="card-root t-aurora" style="width:${w}px;height:${h}px">
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="aurora-inner">
     <div class="aurora-tag">✦ Solana Verified</div>
     <div class="aurora-type">${d.type}</div>
@@ -1162,7 +1123,7 @@ function cardAurora(d, w, h, qrSvg = '') {
 }
 
 // ── Retro / Synthwave theme ─────────────────────────────────────────────────
-function cardRetro(d, w, h, qrSvg = '') {
+function cardRetro(d, w, h) {
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   const ac = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : '';
   const footer = [d.date, d.platform, d.wallet].filter(Boolean).join(' · ');
@@ -1185,7 +1146,6 @@ function cardRetro(d, w, h, qrSvg = '') {
 
   return `
 <div class="card-root t-retro" style="width:${w}px;height:${h}px">
-  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="retro-floor-wrap">
     <div class="retro-floor"></div>
   </div>
@@ -1208,26 +1168,18 @@ async function renderCardPreview() {
   const portrait = selSize === 'portrait';
   const W = 400, H = portrait ? 500 : 400;
 
-  let qrSvg = '';
-  if (document.getElementById('tog-qr').checked) {
-    try {
-      const verifyUrl = await buildVerifyUrl(d);
-      qrSvg = makeQrSvg(verifyUrl);
-    } catch (_) { /* QR generation failed silently — card still renders */ }
-  }
-
   let html;
   switch (selTheme) {
-    case 'dark':    html = cardDark(d, W, H, qrSvg);                  break;
-    case 'receipt': html = cardReceipt(d, W, H, qrSvg);               break;
-    case 'meme':    html = cardMeme(d, W, H, qrSvg);                  break;
-    case 'flow':    html = cardFlow(d, W, H, qrSvg);                  break;
-    case 'neon':     html = cardNeon(d, W, H, qrSvg);                  break;
-    case 'terminal': html = cardTerminal(d, W, H, qrSvg);             break;
-    case 'aurora':   html = cardAurora(d, W, H, qrSvg);               break;
-    case 'retro':    html = cardRetro(d, W, H, qrSvg);                break;
-    case 'photo':    html = cardPhoto(d, W, H, qrSvg, photoDataUrl, photoZoom, photoPanX, photoPanY, photoNaturalW, photoNaturalH); break;
-    default:         html = cardDark(d, W, H, qrSvg);
+    case 'dark':    html = cardDark(d, W, H);                  break;
+    case 'receipt': html = cardReceipt(d, W, H);               break;
+    case 'meme':    html = cardMeme(d, W, H);                  break;
+    case 'flow':    html = cardFlow(d, W, H);                  break;
+    case 'neon':     html = cardNeon(d, W, H);                  break;
+    case 'terminal': html = cardTerminal(d, W, H);             break;
+    case 'aurora':   html = cardAurora(d, W, H);               break;
+    case 'retro':    html = cardRetro(d, W, H);                break;
+    case 'photo':    html = cardPhoto(d, W, H, photoDataUrl, photoZoom, photoPanX, photoPanY, photoNaturalW, photoNaturalH); break;
+    default:         html = cardDark(d, W, H);
   }
   document.getElementById('card-preview').innerHTML = html;
 }

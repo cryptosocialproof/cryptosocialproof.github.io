@@ -904,21 +904,6 @@ body {
 }
 .crop-reset-btn:hover { color: #6366f1; }
 
-/* ---- QR Code badge ---- */
-.card-qr {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 54px;
-  height: 54px;
-  background: white;
-  border-radius: 4px;
-  padding: 3px;
-  line-height: 0;
-}
-.card-qr svg { width: 100%; height: 100%; }
-.t-receipt .card-qr { border: 1px solid #d1d5db; }
-
 /* ---- Mobile ---- */
 @media (max-width: 480px) {
   body { padding: 12px 10px 32px; }
