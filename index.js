@@ -939,11 +939,11 @@ function cardMeme(d, w, h, qrSvg = '') {
 </div>`;
 }
 
-function cardSwap(d, w, h, qrSvg = '') {
+function cardFlow(d, w, h, qrSvg = '') {
   if (d.type !== 'SWAP' || !d.primary || !d.secondary) return cardDark(d, w, h, qrSvg);
   const meta = [d.date, d.wallet, d.platform].filter(Boolean);
   return `
-<div class="card-root t-swap" style="width:${w}px;height:${h}px">
+<div class="card-root t-flow" style="width:${w}px;height:${h}px">
   ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
   <div class="swap-hdr">SWAP</div>
   <div class="swap-row">
@@ -1221,7 +1221,7 @@ async function renderCardPreview() {
     case 'dark':    html = cardDark(d, W, H, qrSvg);                  break;
     case 'receipt': html = cardReceipt(d, W, H, qrSvg);               break;
     case 'meme':    html = cardMeme(d, W, H, qrSvg);                  break;
-    case 'swap':    html = cardSwap(d, W, H, qrSvg);                  break;
+    case 'flow':    html = cardFlow(d, W, H, qrSvg);                  break;
     case 'neon':     html = cardNeon(d, W, H, qrSvg);                  break;
     case 'terminal': html = cardTerminal(d, W, H, qrSvg);             break;
     case 'aurora':   html = cardAurora(d, W, H, qrSvg);               break;

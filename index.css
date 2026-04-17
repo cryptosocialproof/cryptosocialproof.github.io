@@ -249,7 +249,7 @@ body {
 .tp-dark    { background: #111; }
 .tp-receipt { background: #f0f0f0; border: 1px solid #ddd; }
 .tp-meme    { background: #1e1b4b; }
-.tp-swap    { background: #0f0f1a; }
+.tp-flow    { background: #0f0f1a; }
 .tp-photo   { background: linear-gradient(to bottom, #555 70%, #0d0d0d 70%); }
 .tp-neon {
   background: #060d08;
@@ -507,7 +507,7 @@ body {
 .t-meme .csp-wm     { color: rgba(255,255,255,0.28); }
 
 /* ---- Theme: Swap Flow ---- */
-.t-swap {
+.t-flow {
   background: #0f0f1a;
   color: white;
   padding: 32px 32px 36px;
@@ -515,14 +515,14 @@ body {
   flex-direction: column;
   justify-content: center;
 }
-.t-swap .swap-hdr  { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 22px; }
-.t-swap .swap-row  { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.t-swap .swap-pill { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: #9ca3af; }
-.t-swap .swap-amt  { font-size: 26px; font-weight: 800; color: white; }
-.t-swap .swap-arrow { font-size: 24px; color: #4f46e5; margin: 4px 0 8px 0; }
-.t-swap .swap-usd  { margin-top: 14px; font-size: 13px; color: rgba(255,255,255,0.65); }
-.t-swap .swap-foot { display: flex; gap: 14px; margin-top: 18px; font-size: 11px; color: rgba(255,255,255,0.65); }
-.t-swap .csp-wm    { color: rgba(255,255,255,0.25); }
+.t-flow .swap-hdr  { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 22px; }
+.t-flow .swap-row  { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.t-flow .swap-pill { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: #9ca3af; }
+.t-flow .swap-amt  { font-size: 26px; font-weight: 800; color: white; }
+.t-flow .swap-arrow { font-size: 24px; color: #4f46e5; margin: 4px 0 8px 0; }
+.t-flow .swap-usd  { margin-top: 14px; font-size: 13px; color: rgba(255,255,255,0.65); }
+.t-flow .swap-foot { display: flex; gap: 14px; margin-top: 18px; font-size: 11px; color: rgba(255,255,255,0.65); }
+.t-flow .csp-wm    { color: rgba(255,255,255,0.25); }
 
 /* ---- Decimal selector ---- */
 .dec-btns { display: flex; gap: 4px; }
