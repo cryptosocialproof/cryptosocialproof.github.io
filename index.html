@@ -259,6 +259,25 @@
     .tp-meme    { background: #1e1b4b; }
     .tp-swap    { background: #0f0f1a; }
     .tp-photo   { background: linear-gradient(to bottom, #555 70%, #0d0d0d 70%); }
+    .tp-neon {
+      background: #060d08;
+      position: relative; overflow: hidden;
+    }
+    .tp-neon::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(57,255,122,.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(57,255,122,.1) 1px, transparent 1px);
+      background-size: 7px 7px;
+    }
+    .tp-neon::before {
+      content: 'NEON';
+      position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+      font-size: 9px; font-weight: 900; letter-spacing: 0.2em;
+      color: #39ff7a; z-index: 1;
+      text-shadow: 0 0 8px rgba(57,255,122,.9);
+    }
     .theme-name { font-size: 11px; font-weight: 700; color: #666; }
 
     .size-grid { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -582,6 +601,92 @@
     .photo-drop-area.has-photo { border-color: #6366f1; background: #eef2ff; }
     .photo-drop-area.has-photo .photo-drop-text { color: #6366f1; }
 
+    /* ---- Theme: Neon ---- */
+    .t-neon {
+      background: #060d08;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 22px 20px 18px;
+      gap: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Grid lines */
+    .t-neon::before {
+      content: '';
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(57,255,122,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(57,255,122,.06) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    /* Central glow bloom */
+    .t-neon::after {
+      content: '';
+      position: absolute; top: 42%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 70%; height: 50%;
+      background: radial-gradient(ellipse, rgba(57,255,122,.11) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .neon-inner {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; align-items: center;
+      width: 100%;
+    }
+    .neon-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.28em;
+      color: rgba(57,255,122,.65); text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .neon-decos {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; margin-bottom: 6px;
+    }
+    .neon-deco { font-size: 2rem; line-height: 1; }
+    .neon-type {
+      font-weight: 900; line-height: 1; letter-spacing: -0.01em;
+      color: #39ff7a;
+      text-shadow: 0 0 28px rgba(57,255,122,.7), 0 0 60px rgba(57,255,122,.3);
+      margin: 0 8px;
+    }
+    .neon-box {
+      width: 88%;
+      background: rgba(0,0,0,.45);
+      border: 1.5px solid rgba(57,255,122,.28);
+      border-radius: 14px;
+      padding: 16px 20px 14px;
+      text-align: center;
+      box-shadow: 0 0 24px rgba(57,255,122,.08), inset 0 0 16px rgba(57,255,122,.04);
+      margin-bottom: 12px;
+    }
+    .neon-amt {
+      font-weight: 900; line-height: 1.05; letter-spacing: -0.02em;
+    }
+    .neon-amt.c-green { color: #39ff7a; text-shadow: 0 0 16px rgba(57,255,122,.5); }
+    .neon-amt.c-red   { color: #ff4d6d; text-shadow: 0 0 16px rgba(255,77,109,.4); }
+    .neon-amt.c-white { color: #ffffff; }
+    .neon-sym {
+      font-size: 1rem; font-weight: 700; letter-spacing: 0.08em;
+      color: rgba(255,255,255,.6); margin-top: 2px;
+    }
+    .neon-divider {
+      color: rgba(57,255,122,.4); font-size: 1.3rem; margin: 5px 0;
+    }
+    .neon-usd {
+      font-size: 0.75rem; color: rgba(255,255,255,.35);
+      margin-top: 7px; letter-spacing: 0.03em;
+    }
+    .neon-swap-row { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+    .neon-footer {
+      font-size: 10.5px; color: rgba(255,255,255,.38);
+      letter-spacing: 0.03em; text-align: center;
+    }
+    .t-neon .csp-wm { color: rgba(57,255,122,.4); }
+
     /* ---- Photo preview controls ---- */
     .card-preview-wrap.photo-mode { cursor: grab; touch-action: none; }
     .card-preview-wrap.photo-mode:active { cursor: grabbing; }
@@ -731,7 +836,7 @@
   <div class="step-panel hidden" id="step-3">
 
     <div class="section-title">Theme</div>
-    <div class="theme-grid">
+    <div class="theme-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="theme-opt selected" data-theme="dark" onclick="selectTheme('dark')">
         <div class="tp-thumb tp-dark"></div>
         <div class="theme-name">Dark</div>
@@ -747,6 +852,10 @@
       <div class="theme-opt" data-theme="swap" onclick="selectTheme('swap')">
         <div class="tp-thumb tp-swap"></div>
         <div class="theme-name">Swap</div>
+      </div>
+      <div class="theme-opt" data-theme="neon" onclick="selectTheme('neon')">
+        <div class="tp-thumb tp-neon"></div>
+        <div class="theme-name">Neon</div>
       </div>
       <div class="theme-opt" data-theme="photo" onclick="selectTheme('photo')">
         <div class="tp-thumb tp-photo"></div>
@@ -1851,6 +1960,63 @@ function cardPhoto(d, w, h, qrSvg = '', photo = '', zoom = 1, panX = 0, panY = 0
 </div>`;
 }
 
+// ── Neon theme ──────────────────────────────────────────────────────────
+function cardNeon(d, w, h, qrSvg = '') {
+  const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
+  const ac     = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : 'c-white';
+
+  // Size the TYPE word so it always fits: BUY=5rem, SWAP=4rem, RECEIVE=3rem
+  const typeSize = d.type.length <= 3 ? '5.2rem'
+                 : d.type.length <= 4 ? '4.5rem'
+                 : d.type.length <= 5 ? '3.8rem'
+                 : '3.1rem';
+
+  // Per-type decorative emoji (left · right)
+  const decoMap = {
+    SWAP:    ['⚡', '🔄'], BUY:   ['🚀', '💎'],
+    SELL:    ['💰', '📈'], SEND:  ['✈️', '💸'],
+    RECEIVE: ['🎁', '💫'], STAKE: ['🔒', '💎'],
+  };
+  const [dl, dr] = decoMap[d.type] || ['🎲', '💫'];
+
+  const footer = [d.date, d.platform, d.wallet].filter(Boolean).join(' · ');
+
+  // Swap amounts — slightly smaller font since two rows
+  const swapAmt = `clamp(1.6rem,8vw,${d.type === 'SWAP' ? '2.8rem' : '3.5rem'})`;
+
+  return `
+<div class="card-root t-neon" style="width:${w}px;height:${h}px">
+  ${qrSvg ? `<div class="card-qr">${qrSvg}</div>` : ''}
+  <div class="neon-inner">
+    <div class="neon-label">Solana Blockchain</div>
+    <div class="neon-decos">
+      <span class="neon-deco">${dl}</span>
+      <div class="neon-type" style="font-size:${typeSize}">${d.type}</div>
+      <span class="neon-deco">${dr}</span>
+    </div>
+    <div class="neon-box">
+      ${isSwap ? `
+        <div class="neon-swap-row">
+          <span class="neon-amt c-red" style="font-size:${swapAmt}">−${d.primary.amount}</span>
+          <span class="neon-sym">${d.primary.symbol}</span>
+        </div>
+        <div class="neon-divider">↓</div>
+        <div class="neon-swap-row">
+          <span class="neon-amt c-green" style="font-size:${swapAmt}">+${d.secondary.amount}</span>
+          <span class="neon-sym">${d.secondary.symbol}</span>
+        </div>
+      ` : d.primary ? `
+        <div class="neon-amt ${ac}" style="font-size:clamp(2.2rem,10vw,3.8rem)">${d.primary.amount}</div>
+        <div class="neon-sym">${d.primary.symbol}</div>
+      ` : ''}
+      ${d.usdValue ? `<div class="neon-usd">≈ ${d.usdValue}</div>` : ''}
+    </div>
+    <div class="neon-footer">${footer}</div>
+  </div>
+  <div class="csp-wm">cryptosocialproof.com</div>
+</div>`;
+}
+
 // ═══════════════════════════════════════════
 //  RENDER PREVIEW
 // ═══════════════════════════════════════════
@@ -1873,6 +2039,7 @@ async function renderCardPreview() {
     case 'receipt': html = cardReceipt(d, W, H, qrSvg);               break;
     case 'meme':    html = cardMeme(d, W, H, qrSvg);                  break;
     case 'swap':    html = cardSwap(d, W, H, qrSvg);                  break;
+    case 'neon':    html = cardNeon(d, W, H, qrSvg);                  break;
     case 'photo':   html = cardPhoto(d, W, H, qrSvg, photoDataUrl, photoZoom, photoPanX, photoPanY, photoNaturalW, photoNaturalH);   break;
     default:        html = cardDark(d, W, H, qrSvg);
   }
