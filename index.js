@@ -420,7 +420,6 @@ function resetApp() {
   inputError.classList.remove('visible');
   document.getElementById('data-table').innerHTML   = '';
   document.getElementById('card-preview').innerHTML = '';
-  document.getElementById('tog-wallet').checked   = false;
   document.getElementById('tog-platform').checked = true;
   document.getElementById('tog-usd').checked      = false;
   const dropArea = document.getElementById('photo-drop-area');
@@ -568,7 +567,6 @@ fetchBtn.addEventListener('click', async () => {
 // ═══════════════════════════════════════════
 function renderConfirm() {
   const { type, date, wallet, platform, tokenChanges, solDelta } = txData;
-  const showW = document.getElementById('tog-wallet').checked;
   const showP = document.getElementById('tog-platform').checked;
 
   let html = '';
@@ -594,9 +592,6 @@ function renderConfirm() {
     }
   }
 
-  if (showW && wallet) {
-    html += row('Wallet', `<span style="font-family:monospace;font-size:12px">${wallet}</span>`);
-  }
 
   if (txData.usdValue != null) {
     html += row('USD Value', `<span style="color:#888">≈ ${fmtUsd(txData.usdValue)}</span>`);
@@ -629,7 +624,7 @@ function selectDecimals(d) {
   if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
 }
 
-['tog-wallet','tog-platform','tog-usd'].forEach(id => {
+['tog-platform','tog-usd'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     renderConfirm();
     if (!document.getElementById('step-3').classList.contains('hidden')) renderCardPreview();
@@ -790,7 +785,6 @@ function selectSize(s) {
 // ═══════════════════════════════════════════
 function getCardPayload() {
   const { type, date, wallet, platform, tokenChanges, solDelta, usdValue } = txData;
-  const showW   = document.getElementById('tog-wallet').checked;
   const showP   = document.getElementById('tog-platform').checked;
   const showUsd = document.getElementById('tog-usd').checked;
 
@@ -814,7 +808,7 @@ function getCardPayload() {
 
   return {
     type, date,
-    wallet:   showW ? wallet : null,
+    wallet:   null,
     platform: showP ? platform : null,
     primary, secondary,
     amtColor,
