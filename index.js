@@ -705,6 +705,28 @@ function updateZoomIndicator() {
   if (wrap) wrap.classList.toggle('photo-mode', active);
 }
 
+// Fast-path: reposition only the photo <img> without full card re-render.
+// Called during gesture movement; renderCardPreview() is deferred to gesture end.
+let _rafPending = false;
+function _applyPhotoTransform() {
+  const img = document.querySelector('#card-preview .photo-img');
+  if (!img) return;
+  const { W, photoH } = photoAreaSize();
+  const fit    = photoFitSize(W, photoH);
+  const dispW  = fit.w * photoZoom;
+  const dispH  = fit.h * photoZoom;
+  img.style.left   = ((W      - dispW) / 2 + photoPanX * fit.w) + 'px';
+  img.style.top    = ((photoH - dispH) / 2 + photoPanY * fit.h) + 'px';
+  img.style.width  = dispW + 'px';
+  img.style.height = dispH + 'px';
+}
+function _schedulePhotoUpdate(withZoomIndicator) {
+  if (withZoomIndicator) updateZoomIndicator();
+  if (_rafPending) return;
+  _rafPending = true;
+  requestAnimationFrame(() => { _rafPending = false; _applyPhotoTransform(); });
+}
+
 function stepZoom(delta) {
   photoZoom = Math.max(1, Math.min(4, Math.round((photoZoom + delta) * 10) / 10));
   updateZoomIndicator();
@@ -731,20 +753,21 @@ function initPreviewInteraction() {
   window.addEventListener('mousemove', e => {
     if (!_panDragging) return;
     const { W, photoH } = photoAreaSize();
-    const fit = photoFitSize(W, photoH);
-    // scale: card is rendered at W px; wrap may be a different display size
-    const wrapRect = wrap.getBoundingClientRect();
-    const displayScale = wrapRect.width / (W + 32); // 32 = 2×16px padding
+    const fit          = photoFitSize(W, photoH);
+    const wrapRect     = wrap.getBoundingClientRect();
+    const displayScale = wrapRect.width / W;
     photoPanX = _panStartPanX + (e.clientX - _panStartX) / (fit.w * photoZoom * displayScale);
     photoPanY = _panStartPanY + (e.clientY - _panStartY) / (fit.h * photoZoom * displayScale);
-    renderCardPreview();
+    _schedulePhotoUpdate(false);
   });
-  window.addEventListener('mouseup', () => { _panDragging = false; });
+  window.addEventListener('mouseup', () => {
+    if (_panDragging) renderCardPreview();
+    _panDragging = false;
+  });
 
   wrap.addEventListener('touchstart', e => {
     if (selTheme !== 'photo' || !photoDataUrl) return;
     if (e.touches.length === 2) {
-      // Begin pinch-to-zoom
       _panDragging    = false;
       _pinching       = true;
       _pinchStartDist = _touchDist(e);
@@ -753,7 +776,6 @@ function initPreviewInteraction() {
       _pinchMidStartX = mid.x; _pinchMidStartY = mid.y;
       _pinchPanStartX = photoPanX; _pinchPanStartY = photoPanY;
     } else {
-      // Single-finger pan
       _pinching     = false;
       _panDragging  = true;
       _panStartX    = e.touches[0].clientX; _panStartY = e.touches[0].clientY;
@@ -763,38 +785,40 @@ function initPreviewInteraction() {
   }, { passive: false });
 
   window.addEventListener('touchmove', e => {
+    // Only intercept when we're actively gesturing — otherwise let the page scroll freely
+    if (!_panDragging && !_pinching) return;
     if (selTheme !== 'photo' || !photoDataUrl) return;
+
     const { W, photoH } = photoAreaSize();
-    const fit = photoFitSize(W, photoH);
+    const fit          = photoFitSize(W, photoH);
     const wrapRect     = wrap.getBoundingClientRect();
-    const displayScale = wrapRect.width / (W + 16); // 16 = 2×8px padding on mobile
+    // padding on each side: 16px desktop / 8px mobile — use actual wrap size
+    const displayScale = wrapRect.width / W;
 
     if (_pinching && e.touches.length === 2) {
-      // Zoom from pinch distance ratio
-      const dist    = _touchDist(e);
-      photoZoom     = Math.max(1, Math.min(4,
+      const dist = _touchDist(e);
+      photoZoom  = Math.max(1, Math.min(4,
         Math.round(_pinchStartZoom * (dist / _pinchStartDist) * 10) / 10
       ));
-      // Pan by midpoint movement as well
       const mid = _touchMid(e);
       photoPanX = _pinchPanStartX + (mid.x - _pinchMidStartX) / (fit.w * photoZoom * displayScale);
       photoPanY = _pinchPanStartY + (mid.y - _pinchMidStartY) / (fit.h * photoZoom * displayScale);
-      updateZoomIndicator();
-      renderCardPreview();
-    } else if (_panDragging && e.touches.length === 1) {
+      _schedulePhotoUpdate(true);
+    } else if (_panDragging && e.touches.length >= 1) {
       photoPanX = _panStartPanX + (e.touches[0].clientX - _panStartX) / (fit.w * photoZoom * displayScale);
       photoPanY = _panStartPanY + (e.touches[0].clientY - _panStartY) / (fit.h * photoZoom * displayScale);
-      renderCardPreview();
+      _schedulePhotoUpdate(false);
     }
     e.preventDefault();
   }, { passive: false });
 
   window.addEventListener('touchend', e => {
     if (e.touches.length === 0) {
+      if (_panDragging || _pinching) renderCardPreview(); // sync full render once gesture ends
       _panDragging = false;
       _pinching    = false;
     } else if (e.touches.length === 1 && _pinching) {
-      // One finger lifted during pinch — switch to pan from current position
+      // Last pinch finger lifted — seamlessly switch to single-finger pan
       _pinching     = false;
       _panDragging  = true;
       _panStartX    = e.touches[0].clientX; _panStartY = e.touches[0].clientY;
