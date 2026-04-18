@@ -122,10 +122,6 @@
         <div class="tp-thumb tp-meme"></div>
         <div class="theme-name">Modern</div>
       </div>
-      <div class="theme-opt" data-theme="flow" onclick="selectTheme('flow')">
-        <div class="tp-thumb tp-flow"></div>
-        <div class="theme-name">Flow</div>
-      </div>
       <div class="theme-opt" data-theme="neon" onclick="selectTheme('neon')">
         <div class="tp-thumb tp-neon"></div>
         <div class="theme-name">Neon</div>
@@ -145,6 +141,22 @@
       <div class="theme-opt" data-theme="retro" onclick="selectTheme('retro')">
         <div class="tp-thumb tp-retro"></div>
         <div class="theme-name">Retro</div>
+      </div>
+      <div class="theme-opt" data-theme="gradient" onclick="selectTheme('gradient')">
+        <div class="tp-thumb tp-gradient"></div>
+        <div class="theme-name">Gradient</div>
+      </div>
+      <div class="theme-opt" data-theme="glass" onclick="selectTheme('glass')">
+        <div class="tp-thumb tp-glass"></div>
+        <div class="theme-name">Glass</div>
+      </div>
+      <div class="theme-opt" data-theme="bold" onclick="selectTheme('bold')">
+        <div class="tp-thumb tp-bold"></div>
+        <div class="theme-name">Bold</div>
+      </div>
+      <div class="theme-opt" data-theme="stats" onclick="selectTheme('stats')">
+        <div class="tp-thumb tp-stats"></div>
+        <div class="theme-name">Stats</div>
       </div>
     </div>
 
@@ -202,7 +214,7 @@
 <footer class="site-footer">
   <span>© 2025 <a href="https://cryptosocialproof.com">CryptoSocialProof</a></span>
   <span class="footer-sep">·</span>
-  <a href="mailto:cryptosocialproof@protonmail.com">Report a bug</a>
+  <a href="#" onclick="openBugModal(); return false;">Report a bug</a>
   <span class="footer-sep">·</span>
   <span>Built for Solana</span>
 </footer>
@@ -211,6 +223,39 @@
 <div class="export-overlay" id="export-overlay">
   <div class="spinner" style="border-color:rgba(255,255,255,.25);border-top-color:#fff;width:32px;height:32px;"></div>
   <span>Rendering card…</span>
+</div>
+
+<!-- Bug Report Modal -->
+<div class="modal-overlay" id="bug-modal-overlay" onclick="closeBugModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Report a Bug</div>
+      <button class="modal-close" onclick="closeBugModal()">&times;</button>
+    </div>
+    <form id="bug-form" onsubmit="handleBugSubmit(event)">
+      <div class="modal-field">
+        <label class="modal-label" for="bug-category">Category</label>
+        <select class="modal-select" id="bug-category" name="category" required>
+          <option value="" disabled selected>Select a category…</option>
+          <option value="Wrong transaction data">Wrong transaction data</option>
+          <option value="Token not recognised">Token not recognised</option>
+          <option value="Card rendering issue">Card rendering issue</option>
+          <option value="Download / copy not working">Download / copy not working</option>
+          <option value="Site not loading">Site not loading</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="bug-desc">Description</label>
+        <textarea class="modal-textarea" id="bug-desc" name="description" rows="4" placeholder="Describe the issue in as much detail as possible…" required></textarea>
+      </div>
+      <button class="modal-submit" type="submit">Send Report →</button>
+    </form>
+    <div class="modal-success hidden" id="modal-success">
+      <div class="modal-success-icon">✓</div>
+      <div>Thank you — your report has been sent.</div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>

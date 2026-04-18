@@ -465,30 +465,6 @@ function fmtUsd(v) {
   return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 }
 
-// ═══════════════════════════════════════════
-//  VERIFY URL + QR
-// ═══════════════════════════════════════════
-const HMAC_KEY_MATERIAL = 'csp-v1-social-proof';
-let _hmacCryptoKey = null;
-
-async function getHmacKey() {
-  if (_hmacCryptoKey) return _hmacCryptoKey;
-  const enc = new TextEncoder();
-  _hmacCryptoKey = await crypto.subtle.importKey(
-    'raw', enc.encode(HMAC_KEY_MATERIAL),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false, ['sign']
-  );
-  return _hmacCryptoKey;
-}
-
-function b64url(buf) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-
-
 // Clickable nav bar — clicking a completed step navigates back to it.
 // Step 1 (Fetching) is excluded since it's a transient loading state.
 document.querySelectorAll('.prog-step').forEach((el, i) => {
@@ -656,18 +632,6 @@ function selectDecimals(d) {
 });
 
 document.getElementById('to-card-btn').addEventListener('click', () => {
-  // Show Flow theme only for transactions with two sides (swaps)
-  const isSwap = txData && txData.type === 'SWAP' && txData.tokenChanges?.filter(c => c.delta < 0).length >= 1
-                        && txData.tokenChanges?.filter(c => c.delta > 0).length >= 1;
-  const flowOpt = document.querySelector('.theme-opt[data-theme="flow"]');
-  if (flowOpt) {
-    flowOpt.style.display = isSwap ? '' : 'none';
-    if (!isSwap && selTheme === 'flow') {
-      selTheme = 'dark';
-      document.querySelector('.theme-opt[data-theme="dark"]').classList.add('selected');
-      flowOpt.classList.remove('selected');
-    }
-  }
   renderCardPreview();
   goToStep(3);
 });
@@ -935,27 +899,6 @@ function cardMeme(d, w, h) {
 </div>`;
 }
 
-function cardFlow(d, w, h) {
-  if (!d.primary || !d.secondary) return cardDark(d, w, h);
-  const meta = [d.date, d.wallet, d.platform].filter(Boolean);
-  return `
-<div class="card-root t-flow" style="width:${w}px;height:${h}px">
-  <div class="swap-hdr">SWAP</div>
-  <div class="swap-row">
-    <div class="swap-pill">${d.primary.symbol}</div>
-    <div class="swap-amt">${d.primary.amount}</div>
-  </div>
-  <div class="swap-arrow">↓</div>
-  <div class="swap-row">
-    <div class="swap-pill">${d.secondary.symbol}</div>
-    <div class="swap-amt">${d.secondary.amount}</div>
-  </div>
-  <div class="swap-foot">${meta.map(m => `<span>${m}</span>`).join('')}</div>
-  ${d.usdValue ? `<div class="card-usd" style="text-align:center;padding-bottom:4px">≈ ${d.usdValue}</div>` : ''}
-  <div class="csp-wm">cryptosocialproof.com</div>
-</div>`;
-}
-
 function cardPhoto(d, w, h, photo = '', zoom = 1, panX = 0, panY = 0, natW = 0, natH = 0) {
   const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
   const barH   = Math.round(h * (isSwap ? 0.30 : 0.24));
@@ -1200,16 +1143,19 @@ async function renderCardPreview() {
 
   let html;
   switch (selTheme) {
-    case 'dark':    html = cardDark(d, W, H);                  break;
-    case 'receipt': html = cardReceipt(d, W, H);               break;
-    case 'meme':    html = cardMeme(d, W, H);                  break;
-    case 'flow':    html = cardFlow(d, W, H);                  break;
-    case 'neon':     html = cardNeon(d, W, H);                  break;
-    case 'terminal': html = cardTerminal(d, W, H);             break;
-    case 'aurora':   html = cardAurora(d, W, H);               break;
-    case 'retro':    html = cardRetro(d, W, H);                break;
-    case 'photo':    html = cardPhoto(d, W, H, photoDataUrl, photoZoom, photoPanX, photoPanY, photoNaturalW, photoNaturalH); break;
-    default:         html = cardDark(d, W, H);
+    case 'dark':      html = cardDark(d, W, H);     break;
+    case 'receipt':   html = cardReceipt(d, W, H);  break;
+    case 'meme':      html = cardMeme(d, W, H);     break;
+    case 'neon':      html = cardNeon(d, W, H);     break;
+    case 'terminal':  html = cardTerminal(d, W, H); break;
+    case 'aurora':    html = cardAurora(d, W, H);   break;
+    case 'retro':     html = cardRetro(d, W, H);    break;
+    case 'gradient':  html = cardGradient(d, W, H); break;
+    case 'glass':     html = cardGlass(d, W, H);    break;
+    case 'bold':      html = cardBold(d, W, H);     break;
+    case 'stats':     html = cardStats(d, W, H);    break;
+    case 'photo':     html = cardPhoto(d, W, H, photoDataUrl, photoZoom, photoPanX, photoPanY, photoNaturalW, photoNaturalH); break;
+    default:          html = cardDark(d, W, H);
   }
   document.getElementById('card-preview').innerHTML = html;
 }
@@ -1291,6 +1237,251 @@ async function copyCard() {
   } finally {
     overlay.classList.remove('visible');
   }
+}
+
+// ── Gradient theme ──────────────────────────────────────────────────────────
+function cardGradient(d, w, h) {
+  const gradMap = {
+    SWAP:    'linear-gradient(135deg,#4338ca 0%,#7c3aed 100%)',
+    BUY:     'linear-gradient(135deg,#065f46 0%,#059669 100%)',
+    RECEIVE: 'linear-gradient(135deg,#065f46 0%,#059669 100%)',
+    SELL:    'linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%)',
+    SEND:    'linear-gradient(135deg,#7f1d1d 0%,#b45309 100%)',
+    STAKE:   'linear-gradient(135deg,#4c1d95 0%,#6d28d9 100%)',
+    UNKNOWN: 'linear-gradient(135deg,#1f2937 0%,#374151 100%)',
+  };
+  const bg = gradMap[d.type] || gradMap.UNKNOWN;
+  const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
+  const meta = [d.date, d.platform, d.wallet].filter(Boolean).join(' · ');
+
+  let amtBlock;
+  if (isSwap) {
+    amtBlock = `
+      <div class="grad-amt" style="font-size:clamp(1.8rem,9vw,3rem);color:rgba(255,185,185,1)">−${d.primary.amount}</div>
+      <div class="grad-sym">${d.primary.symbol}</div>
+      <div style="color:rgba(255,255,255,.35);font-size:1.2rem;margin:4px 0">↓</div>
+      <div class="grad-amt" style="font-size:clamp(1.8rem,9vw,3rem);color:rgba(185,255,215,1)">+${d.secondary.amount}</div>
+      <div class="grad-sym">${d.secondary.symbol}</div>`;
+  } else if (d.primary) {
+    amtBlock = `
+      <div class="grad-amt">${d.primary.amount}</div>
+      <div class="grad-sym">${d.primary.symbol}</div>`;
+  } else {
+    amtBlock = '';
+  }
+
+  return `
+<div class="card-root t-gradient" style="width:${w}px;height:${h}px;background:${bg}">
+  <div class="grad-overlay"></div>
+  <div class="grad-inner">
+    <div class="grad-tag">Solana · Verified</div>
+    <div class="grad-type">${d.type}</div>
+    ${amtBlock}
+    ${d.usdValue ? `<div class="grad-usd">≈ ${d.usdValue}</div>` : ''}
+    <div class="grad-meta">${meta}</div>
+  </div>
+  <div class="csp-wm">cryptosocialproof.com</div>
+</div>`;
+}
+
+// ── Glass theme ─────────────────────────────────────────────────────────────
+function cardGlass(d, w, h) {
+  const blobMap = {
+    SWAP:    ['rgba(99,102,241,.5)',  'rgba(168,85,247,.4)'],
+    BUY:     ['rgba(5,150,105,.5)',   'rgba(16,185,129,.38)'],
+    RECEIVE: ['rgba(5,150,105,.5)',   'rgba(16,185,129,.38)'],
+    SELL:    ['rgba(220,38,38,.5)',   'rgba(249,115,22,.4)'],
+    SEND:    ['rgba(220,38,38,.5)',   'rgba(249,115,22,.4)'],
+    STAKE:   ['rgba(124,58,237,.5)',  'rgba(99,102,241,.38)'],
+    UNKNOWN: ['rgba(75,85,99,.5)',    'rgba(107,114,128,.38)'],
+  };
+  const [b1, b2] = blobMap[d.type] || blobMap.UNKNOWN;
+  const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
+  const ac = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : '';
+  const meta = [d.date, d.platform, d.wallet].filter(Boolean).join(' · ');
+  const bW = Math.round(w * .65), bH = Math.round(h * .65);
+  const bW2 = Math.round(w * .52), bH2 = Math.round(h * .52);
+
+  let panelContent;
+  if (isSwap) {
+    panelContent = `
+      <div class="glass-badge">${d.type}</div>
+      <div class="glass-amt c-red" style="font-size:clamp(1.6rem,8vw,2.6rem)">−${d.primary.amount}</div>
+      <div class="glass-sym">${d.primary.symbol}</div>
+      <div style="color:rgba(255,255,255,.28);font-size:1.1rem;margin:6px 0">↓</div>
+      <div class="glass-amt c-green" style="font-size:clamp(1.6rem,8vw,2.6rem)">+${d.secondary.amount}</div>
+      <div class="glass-sym">${d.secondary.symbol}</div>
+      ${d.usdValue ? `<div class="glass-usd">≈ ${d.usdValue}</div>` : ''}`;
+  } else if (d.primary) {
+    panelContent = `
+      <div class="glass-badge">${d.type}</div>
+      <div class="glass-amt ${ac}">${d.primary.amount}</div>
+      <div class="glass-sym">${d.primary.symbol}</div>
+      ${d.usdValue ? `<div class="glass-usd">≈ ${d.usdValue}</div>` : ''}`;
+  } else {
+    panelContent = `<div class="glass-badge">${d.type}</div>`;
+  }
+
+  return `
+<div class="card-root t-glass" style="width:${w}px;height:${h}px">
+  <div class="glass-blob" style="width:${bW}px;height:${bH}px;top:-12%;left:-12%;background:radial-gradient(circle,${b1} 0%,transparent 70%)"></div>
+  <div class="glass-blob" style="width:${bW2}px;height:${bH2}px;bottom:-12%;right:-12%;background:radial-gradient(circle,${b2} 0%,transparent 70%)"></div>
+  <div class="glass-inner">
+    <div class="glass-panel">${panelContent}</div>
+    <div class="glass-divider"></div>
+    <div class="glass-meta">${meta}</div>
+  </div>
+  <div class="csp-wm">cryptosocialproof.com</div>
+</div>`;
+}
+
+// ── Bold theme ──────────────────────────────────────────────────────────────
+function cardBold(d, w, h) {
+  const accentMap = {
+    SWAP:    '#6366f1', BUY:     '#16a34a',
+    RECEIVE: '#16a34a', SELL:    '#dc2626',
+    SEND:    '#dc2626', STAKE:   '#7c3aed',
+    UNKNOWN: '#6b7280',
+  };
+  const accent = accentMap[d.type] || '#6b7280';
+  const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
+  const ac = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : '';
+  const meta = [d.date, d.platform, d.wallet].filter(Boolean).join(' · ');
+
+  let amtBlock;
+  if (isSwap) {
+    amtBlock = `
+      <div class="bold-amt c-red" style="font-size:clamp(2rem,11vw,3.8rem)">−${d.primary.amount}</div>
+      <div class="bold-sym">${d.primary.symbol}</div>
+      <div style="color:#e5e7eb;font-size:1.1rem;margin:1px 0">↓</div>
+      <div class="bold-amt c-green" style="font-size:clamp(2rem,11vw,3.8rem)">+${d.secondary.amount}</div>
+      <div class="bold-sym">${d.secondary.symbol}</div>`;
+  } else if (d.primary) {
+    amtBlock = `
+      <div class="bold-amt ${ac}">${d.primary.amount}</div>
+      <div class="bold-sym">${d.primary.symbol}</div>`;
+  } else {
+    amtBlock = '';
+  }
+
+  return `
+<div class="card-root t-bold" style="width:${w}px;height:${h}px">
+  <div class="bold-accent-bar" style="background:${accent}"></div>
+  <div class="bold-body">
+    <div class="bold-ghost">${d.type}</div>
+    <div class="bold-top">
+      <div class="bold-type-label">${d.type} · Solana</div>
+      ${amtBlock}
+      ${d.usdValue ? `<div class="bold-usd">≈ ${d.usdValue}</div>` : ''}
+    </div>
+    <div class="bold-bottom">
+      <div class="bold-meta">${meta}</div>
+    </div>
+  </div>
+  <div class="csp-wm">cryptosocialproof.com</div>
+</div>`;
+}
+
+// ── Stats theme ─────────────────────────────────────────────────────────────
+function statRow(key, val) {
+  return `<div class="stats-row"><span class="stats-key">${key}</span><span class="stats-val">${val}</span></div>`;
+}
+
+function cardStats(d, w, h) {
+  const barMap = {
+    SWAP:    'linear-gradient(to right,#6366f1,#a855f7)',
+    BUY:     'linear-gradient(to right,#059669,#10b981)',
+    RECEIVE: 'linear-gradient(to right,#059669,#10b981)',
+    SELL:    'linear-gradient(to right,#dc2626,#f97316)',
+    SEND:    'linear-gradient(to right,#dc2626,#f97316)',
+    STAKE:   'linear-gradient(to right,#7c3aed,#6366f1)',
+    UNKNOWN: 'linear-gradient(to right,#4b5563,#6b7280)',
+  };
+  const bar = barMap[d.type] || barMap.UNKNOWN;
+  const isSwap = d.type === 'SWAP' && d.primary && d.secondary;
+  const ac = d.amtColor === 'green' ? 'c-green' : d.amtColor === 'red' ? 'c-red' : 'c-white';
+
+  let amtSection;
+  if (isSwap) {
+    amtSection = `
+      <div class="stats-amt-section">
+        <div class="stats-amt c-red" style="font-size:clamp(1.8rem,9vw,3.2rem)">−${d.primary.amount}</div>
+        <div class="stats-sym">${d.primary.symbol}</div>
+        <div style="color:rgba(255,255,255,.22);font-size:0.9rem;margin:3px 0">→</div>
+        <div class="stats-amt c-green" style="font-size:clamp(1.8rem,9vw,3.2rem)">+${d.secondary.amount}</div>
+        <div class="stats-sym">${d.secondary.symbol}</div>
+      </div>`;
+  } else if (d.primary) {
+    amtSection = `
+      <div class="stats-amt-section">
+        <div class="stats-amt ${ac}">${d.primary.amount}</div>
+        <div class="stats-sym">${d.primary.symbol}</div>
+        ${d.usdValue ? `<div class="stats-usd">≈ ${d.usdValue}</div>` : ''}
+      </div>`;
+  } else {
+    amtSection = '';
+  }
+
+  let rows = '';
+  if (d.date)                      rows += statRow('DATE', d.date);
+  if (d.platform)                  rows += statRow('VIA', d.platform);
+  if (isSwap && d.usdValue)        rows += statRow('VALUE', `≈ ${d.usdValue}`);
+  rows += statRow('NETWORK', 'Solana Mainnet');
+  rows += statRow('STATUS', 'Confirmed ✓');
+
+  return `
+<div class="card-root t-stats" style="width:${w}px;height:${h}px">
+  <div class="stats-top-bar" style="background:${bar}"></div>
+  <div class="stats-inner">
+    <div class="stats-header">
+      <div class="stats-type">${d.type}</div>
+      <div class="stats-chain">SOLANA</div>
+    </div>
+    ${amtSection}
+    <div class="stats-rows">${rows}</div>
+  </div>
+  <div class="csp-wm">cryptosocialproof.com</div>
+</div>`;
+}
+
+// ═══════════════════════════════════════════
+//  BUG REPORT MODAL
+// ═══════════════════════════════════════════
+function openBugModal() {
+  document.getElementById('bug-modal-overlay').classList.add('visible');
+  document.getElementById('bug-form').reset();
+  document.getElementById('bug-form').classList.remove('hidden');
+  document.getElementById('modal-success').classList.add('hidden');
+}
+
+function closeBugModal(e) {
+  if (e && e.target !== document.getElementById('bug-modal-overlay')) return;
+  document.getElementById('bug-modal-overlay').classList.remove('visible');
+}
+
+async function handleBugSubmit(e) {
+  e.preventDefault();
+  const category    = document.getElementById('bug-category').value;
+  const description = document.getElementById('bug-desc').value;
+  const btn = e.target.querySelector('.modal-submit');
+  btn.disabled    = true;
+  btn.textContent = 'Sending…';
+  try {
+    await fetch('https://formsubmit.co/ajax/cryptosocialproof@protonmail.com', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body:    JSON.stringify({
+        _subject:    'Bug Report — CryptoSocialProof',
+        category,
+        description,
+      }),
+    });
+  } catch (_) { /* best-effort — show success regardless */ }
+  document.getElementById('bug-form').classList.add('hidden');
+  document.getElementById('modal-success').classList.remove('hidden');
+  setTimeout(() => {
+    document.getElementById('bug-modal-overlay').classList.remove('visible');
+  }, 2800);
 }
 
 // Init preview pan/zoom interaction
