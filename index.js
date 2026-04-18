@@ -436,7 +436,10 @@ function resetApp() {
   selSize     = 'square';
   selDecimals = 4;
   maxStep     = 0;
-  document.querySelectorAll('.theme-opt').forEach(el => el.classList.toggle('selected', el.dataset.theme === 'dark'));
+  document.querySelectorAll('.theme-opt').forEach(el => {
+    el.classList.toggle('selected', el.dataset.theme === 'dark');
+    el.style.display = '';
+  });
   document.querySelectorAll('.size-opt').forEach(el => el.classList.toggle('selected', el.dataset.size === 'square'));
   document.querySelectorAll('.dec-btn').forEach(el => el.classList.toggle('selected', el.dataset.dec === '4'));
   goToStep(0);
@@ -516,35 +519,51 @@ function showInputError(msg) {
   inputError.classList.add('visible');
 }
 
+const DEMO_SIG = '4MByS4iiDSerLeY276PDGMkUbAqWx2cQZ4PgqY2xn9pv5Gr2wfwrrtebDi8RU3LFm5C9PsbMs8NEMcjMS19tq3Gm';
+
 sigInput.addEventListener('input', () => {
   sigInput.classList.remove('input-err');
   inputError.classList.remove('visible');
 });
 sigInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchBtn.click(); });
 
+document.getElementById('demo-btn').addEventListener('click', () => {
+  sigInput.value = DEMO_SIG;
+  sigInput.classList.remove('input-err');
+  inputError.classList.remove('visible');
+  fetchBtn.click();
+});
+
 fetchBtn.addEventListener('click', async () => {
   const sig = sigInput.value.trim();
   if (!sig) { showInputError('Please paste a transaction signature.'); return; }
   if (!validSig(sig)) {
-    showInputError('Invalid signature format. Solana signatures are 87–88 base58 characters.');
+    showInputError('That doesn\'t look like a Solana signature. Signatures are 87–88 base58 characters — you can find yours on Solscan or in your wallet\'s transaction history.');
     return;
   }
 
   sigInput.classList.remove('input-err');
   inputError.classList.remove('visible');
+  fetchBtn.disabled = true;
 
   goToStep(1);
-  fStatus.textContent = 'Fetching transaction…';
-  fSub.textContent    = 'Querying Solana RPC — this may take a moment';
+  fStatus.textContent = 'Connecting to Solana…';
+  fSub.textContent    = 'Querying public RPC endpoints';
 
   try {
-    fStatus.textContent = 'Parsing transaction data…';
-    fSub.textContent    = 'Resolving token symbols';
+    fStatus.textContent = 'Fetching transaction…';
+    fSub.textContent    = 'Resolving token symbols — this may take a few seconds';
     txData = await parseTx(sig);
 
     if (!txData) {
       goToStep(0);
-      showInputError('Transaction not found. It may still be processing or the signature may be incorrect.');
+      showInputError('Transaction not found. Double-check the signature or wait a minute if it was just submitted — it may still be finalising on-chain.');
+      return;
+    }
+
+    if (txData.type === 'UNKNOWN') {
+      goToStep(0);
+      showInputError('This transaction was found on-chain but couldn\'t be recognised as a supported type (SWAP, BUY, SELL, SEND, RECEIVE, STAKE). If you think this is a bug, please report it to cryptosocialproof@protonmail.com.');
       return;
     }
 
@@ -554,11 +573,16 @@ fetchBtn.addEventListener('click', async () => {
   } catch (e) {
     console.error('Fetch error:', e);
     goToStep(0);
-    if (e.name === 'AbortError' || e.message === 'timeout') {
-      showInputError('Could not reach the Solana network. Please try again in a moment.');
+    const isNetworkErr = e.name === 'AbortError' || e.name === 'TypeError' || /network|fetch|timeout/i.test(e.message);
+    if (isNetworkErr) {
+      showInputError('Could not reach the Solana network. Check your connection and try again — public RPC endpoints can occasionally be slow.');
+    } else if (/not found|invalid/i.test(e.message)) {
+      showInputError('Transaction not found. Make sure you\'re using the full signature (not a shortened link or tx hash).');
     } else {
-      showInputError(e.message || 'An unexpected error occurred. Please try again.');
+      showInputError('Something went wrong parsing this transaction. If the problem persists, please report it to cryptosocialproof@protonmail.com.');
     }
+  } finally {
+    fetchBtn.disabled = false;
   }
 });
 
@@ -632,6 +656,18 @@ function selectDecimals(d) {
 });
 
 document.getElementById('to-card-btn').addEventListener('click', () => {
+  // Show Flow theme only for transactions with two sides (swaps)
+  const isSwap = txData && txData.type === 'SWAP' && txData.tokenChanges?.filter(c => c.delta < 0).length >= 1
+                        && txData.tokenChanges?.filter(c => c.delta > 0).length >= 1;
+  const flowOpt = document.querySelector('.theme-opt[data-theme="flow"]');
+  if (flowOpt) {
+    flowOpt.style.display = isSwap ? '' : 'none';
+    if (!isSwap && selTheme === 'flow') {
+      selTheme = 'dark';
+      document.querySelector('.theme-opt[data-theme="dark"]').classList.add('selected');
+      flowOpt.classList.remove('selected');
+    }
+  }
   renderCardPreview();
   goToStep(3);
 });
@@ -900,7 +936,7 @@ function cardMeme(d, w, h) {
 }
 
 function cardFlow(d, w, h) {
-  if (d.type !== 'SWAP' || !d.primary || !d.secondary) return cardDark(d, w, h);
+  if (!d.primary || !d.secondary) return cardDark(d, w, h);
   const meta = [d.date, d.wallet, d.platform].filter(Boolean);
   return `
 <div class="card-root t-flow" style="width:${w}px;height:${h}px">
