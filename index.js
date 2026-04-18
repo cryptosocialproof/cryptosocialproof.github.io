@@ -652,9 +652,27 @@ function selectTheme(t) {
 // ═══════════════════════════════════════════
 //  PHOTO PAN / ZOOM  (operates on card preview)
 // ═══════════════════════════════════════════
-let _panDragging = false;
+let _panDragging   = false;
 let _panStartX = 0, _panStartY = 0;
-let _panStartPanX = 0, _panStartPanY = 0;
+let _panStartPanX  = 0, _panStartPanY = 0;
+
+let _pinching       = false;
+let _pinchStartDist = 0;
+let _pinchStartZoom = 1;
+let _pinchMidStartX = 0, _pinchMidStartY = 0;
+let _pinchPanStartX = 0, _pinchPanStartY = 0;
+
+function _touchDist(e) {
+  const dx = e.touches[0].clientX - e.touches[1].clientX;
+  const dy = e.touches[0].clientY - e.touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+function _touchMid(e) {
+  return {
+    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+    y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+  };
+}
 
 // "contain" fit size — same logic used by cardPhoto() and drag handler
 function photoFitSize(cW, cH) {
@@ -667,7 +685,10 @@ function photoFitSize(cW, cH) {
 // Returns the photo area dimensions for the current card settings
 function photoAreaSize() {
   const portrait = selSize === 'portrait';
-  const W = 400, H = portrait ? 500 : 400;
+  const wrap  = document.getElementById('card-preview-wrap');
+  const avail = wrap ? Math.floor(wrap.clientWidth - 32) : 400;
+  const W     = Math.min(400, Math.max(260, avail));
+  const H     = portrait ? Math.round(W * 1.25) : W;
   const isSwap = txData && txData.type === 'SWAP'
     && txData.tokenChanges && txData.tokenChanges.filter(t => Math.abs(t.amount) > 0).length >= 2;
   const barH = Math.round(H * (isSwap ? 0.30 : 0.24));
@@ -722,23 +743,64 @@ function initPreviewInteraction() {
 
   wrap.addEventListener('touchstart', e => {
     if (selTheme !== 'photo' || !photoDataUrl) return;
-    _panDragging = true;
-    _panStartX = e.touches[0].clientX; _panStartY = e.touches[0].clientY;
-    _panStartPanX = photoPanX; _panStartPanY = photoPanY;
+    if (e.touches.length === 2) {
+      // Begin pinch-to-zoom
+      _panDragging    = false;
+      _pinching       = true;
+      _pinchStartDist = _touchDist(e);
+      _pinchStartZoom = photoZoom;
+      const mid       = _touchMid(e);
+      _pinchMidStartX = mid.x; _pinchMidStartY = mid.y;
+      _pinchPanStartX = photoPanX; _pinchPanStartY = photoPanY;
+    } else {
+      // Single-finger pan
+      _pinching     = false;
+      _panDragging  = true;
+      _panStartX    = e.touches[0].clientX; _panStartY = e.touches[0].clientY;
+      _panStartPanX = photoPanX; _panStartPanY = photoPanY;
+    }
     e.preventDefault();
   }, { passive: false });
+
   window.addEventListener('touchmove', e => {
-    if (!_panDragging) return;
+    if (selTheme !== 'photo' || !photoDataUrl) return;
     const { W, photoH } = photoAreaSize();
     const fit = photoFitSize(W, photoH);
-    const wrapRect = wrap.getBoundingClientRect();
-    const displayScale = wrapRect.width / (W + 32);
-    photoPanX = _panStartPanX + (e.touches[0].clientX - _panStartX) / (fit.w * photoZoom * displayScale);
-    photoPanY = _panStartPanY + (e.touches[0].clientY - _panStartY) / (fit.h * photoZoom * displayScale);
-    renderCardPreview();
+    const wrapRect     = wrap.getBoundingClientRect();
+    const displayScale = wrapRect.width / (W + 16); // 16 = 2×8px padding on mobile
+
+    if (_pinching && e.touches.length === 2) {
+      // Zoom from pinch distance ratio
+      const dist    = _touchDist(e);
+      photoZoom     = Math.max(1, Math.min(4,
+        Math.round(_pinchStartZoom * (dist / _pinchStartDist) * 10) / 10
+      ));
+      // Pan by midpoint movement as well
+      const mid = _touchMid(e);
+      photoPanX = _pinchPanStartX + (mid.x - _pinchMidStartX) / (fit.w * photoZoom * displayScale);
+      photoPanY = _pinchPanStartY + (mid.y - _pinchMidStartY) / (fit.h * photoZoom * displayScale);
+      updateZoomIndicator();
+      renderCardPreview();
+    } else if (_panDragging && e.touches.length === 1) {
+      photoPanX = _panStartPanX + (e.touches[0].clientX - _panStartX) / (fit.w * photoZoom * displayScale);
+      photoPanY = _panStartPanY + (e.touches[0].clientY - _panStartY) / (fit.h * photoZoom * displayScale);
+      renderCardPreview();
+    }
     e.preventDefault();
   }, { passive: false });
-  window.addEventListener('touchend', () => { _panDragging = false; });
+
+  window.addEventListener('touchend', e => {
+    if (e.touches.length === 0) {
+      _panDragging = false;
+      _pinching    = false;
+    } else if (e.touches.length === 1 && _pinching) {
+      // One finger lifted during pinch — switch to pan from current position
+      _pinching     = false;
+      _panDragging  = true;
+      _panStartX    = e.touches[0].clientX; _panStartY = e.touches[0].clientY;
+      _panStartPanX = photoPanX; _panStartPanY = photoPanY;
+    }
+  });
 
   wrap.addEventListener('wheel', e => {
     if (selTheme !== 'photo' || !photoDataUrl) return;
@@ -1139,7 +1201,12 @@ function cardRetro(d, w, h) {
 async function renderCardPreview() {
   const d = getCardPayload();
   const portrait = selSize === 'portrait';
-  const W = 400, H = portrait ? 500 : 400;
+
+  // Fit card to preview container on small screens (padding: 16px each side)
+  const wrap  = document.getElementById('card-preview-wrap');
+  const avail = wrap ? Math.floor(wrap.clientWidth - 32) : 400;
+  const W     = Math.min(400, Math.max(260, avail));
+  const H     = portrait ? Math.round(W * 1.25) : W;
 
   let html;
   switch (selTheme) {
