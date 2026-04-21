@@ -130,6 +130,8 @@ body {
   line-height: 1.5;
 }
 
+.input-hint-sep { color: #d1d5db; margin: 0 2px; }
+
 .demo-btn {
   width: 100%;
   padding: 11px;

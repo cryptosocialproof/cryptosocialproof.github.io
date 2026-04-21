@@ -6,7 +6,8 @@
 
 const RPC_ENDPOINTS = [
   'https://solana-rpc.publicnode.com',
-  'https://rpc.ankr.com/solana',
+  'https://solana.drpc.org',
+  'https://solana.blockpi.network/v1/rpc/public',
   'https://api.mainnet-beta.solana.com',
 ];
 
@@ -495,7 +496,30 @@ function showInputError(msg) {
   inputError.classList.add('visible');
 }
 
-const DEMO_SIG = '4MByS4iiDSerLeY276PDGMkUbAqWx2cQZ4PgqY2xn9pv5Gr2wfwrrtebDi8RU3LFm5C9PsbMs8NEMcjMS19tq3Gm';
+// Fetch a live recent SWAP signature from Jupiter v6 (always fresh)
+const DEMO_ADDRESS = 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4';
+
+async function fetchDemoSig() {
+  const body = JSON.stringify({
+    jsonrpc: '2.0', id: 1,
+    method:  'getSignaturesForAddress',
+    params:  [DEMO_ADDRESS, { limit: 10, commitment: 'finalized' }],
+  });
+  const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
+  for (const endpoint of RPC_ENDPOINTS) {
+    try {
+      const res  = await fetchWithTimeout(endpoint, opts, 10000);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const sigs = json.result;
+      if (!Array.isArray(sigs)) continue;
+      // Return the first confirmed, error-free signature
+      const hit = sigs.find(s => !s.err && s.signature);
+      if (hit) return hit.signature;
+    } catch (_) {}
+  }
+  return null;
+}
 
 sigInput.addEventListener('input', () => {
   sigInput.classList.remove('input-err');
@@ -503,10 +527,22 @@ sigInput.addEventListener('input', () => {
 });
 sigInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchBtn.click(); });
 
-document.getElementById('demo-btn').addEventListener('click', () => {
-  sigInput.value = DEMO_SIG;
+document.getElementById('demo-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('demo-btn');
+  btn.disabled    = true;
+  btn.textContent = 'Finding example…';
   sigInput.classList.remove('input-err');
   inputError.classList.remove('visible');
+
+  const sig = await fetchDemoSig();
+  btn.disabled    = false;
+  btn.textContent = 'Try an example →';
+
+  if (!sig) {
+    showInputError('Could not load a live example — the network may be busy. Please paste your own signature.');
+    return;
+  }
+  sigInput.value = sig;
   fetchBtn.click();
 });
 
