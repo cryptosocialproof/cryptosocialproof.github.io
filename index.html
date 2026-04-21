@@ -75,11 +75,15 @@
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div class="section-title" style="margin-bottom:0">Parsed Data</div>
-      <div class="dec-btns">
-        <button class="dec-btn" data-dec="2" onclick="selectDecimals(2)">2</button>
-        <button class="dec-btn selected" data-dec="4" onclick="selectDecimals(4)">4</button>
-        <button class="dec-btn" data-dec="6" onclick="selectDecimals(6)">6</button>
-        <button class="dec-btn" data-dec="9" onclick="selectDecimals(9)">Max</button>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:11px;font-weight:600;color:#bbb;white-space:nowrap">Decimals</span>
+        <div class="dec-btns">
+          <button class="dec-btn" data-dec="0" onclick="selectDecimals(0)">0</button>
+          <button class="dec-btn" data-dec="2" onclick="selectDecimals(2)">2</button>
+          <button class="dec-btn selected" data-dec="4" onclick="selectDecimals(4)">4</button>
+          <button class="dec-btn" data-dec="6" onclick="selectDecimals(6)">6</button>
+          <button class="dec-btn" data-dec="9" onclick="selectDecimals(9)">Max</button>
+        </div>
       </div>
     </div>
     <div class="data-table" id="data-table"><!-- populated by JS --></div>

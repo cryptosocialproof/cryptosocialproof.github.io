@@ -6,7 +6,7 @@
 
 const RPC_ENDPOINTS = [
   'https://solana-rpc.publicnode.com',
-  'https://mainnet.sonic.game/',
+  'https://rpc.ankr.com/solana',
   'https://api.mainnet-beta.solana.com',
 ];
 
