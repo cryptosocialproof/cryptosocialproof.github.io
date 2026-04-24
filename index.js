@@ -11,6 +11,77 @@ const RPC_ENDPOINTS = [
   'https://api.mainnet-beta.solana.com',
 ];
 
+const ETH_RPC_ENDPOINTS = [
+  'https://ethereum-rpc.publicnode.com',
+  'https://eth.llamarpc.com',
+  'https://rpc.ankr.com/eth',
+  'https://eth.drpc.org',
+  'https://cloudflare-eth.com',
+];
+
+// Top ERC-20s on Ethereum mainnet. Keys are lowercased contract addresses.
+const KNOWN_ETH_TOKENS = {
+  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': { symbol: 'USDC',  decimals: 6  },
+  '0xdac17f958d2ee523a2206206994597c13d831ec7': { symbol: 'USDT',  decimals: 6  },
+  '0x6b175474e89094c44da98b954eedeac495271d0f': { symbol: 'DAI',   decimals: 18 },
+  '0x853d955acef822db058eb8505911ed77f175b99e': { symbol: 'FRAX',  decimals: 18 },
+  '0x4c9edd5852cd905f086c759e8383e09bff1e68b3': { symbol: 'USDe',  decimals: 18 },
+  '0x57e114b691db790c35207b2e685d4a43181e6061': { symbol: 'ENA',   decimals: 18 },
+  '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': { symbol: 'WETH',  decimals: 18 },
+  '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599': { symbol: 'WBTC',  decimals: 8  },
+  '0x514910771af9ca656af840dff83e8264ecf986ca': { symbol: 'LINK',  decimals: 18 },
+  '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984': { symbol: 'UNI',   decimals: 18 },
+  '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9': { symbol: 'AAVE',  decimals: 18 },
+  '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce': { symbol: 'SHIB',  decimals: 18 },
+  '0x6982508145454ce325ddbe47a25d4ec3d2311933': { symbol: 'PEPE',  decimals: 18 },
+  '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2': { symbol: 'MKR',   decimals: 18 },
+  '0x5a98fcbea516cf06857215779fd812ca3bef1b32': { symbol: 'LDO',   decimals: 18 },
+  '0xae7ab96520de3a18e5e111b5eaab095312d7fe84': { symbol: 'stETH', decimals: 18 },
+  '0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0': { symbol: 'wstETH',decimals: 18 },
+  '0xbe9895146f7af43049ca1c1ae358b0541ea49704': { symbol: 'cbETH', decimals: 18 },
+  '0xae78736cd615f374d3085123a210448e74fc6393': { symbol: 'rETH',  decimals: 18 },
+  '0xd533a949740bb3306d119cc777fa900ba034cd52': { symbol: 'CRV',   decimals: 18 },
+  '0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f': { symbol: 'SNX',   decimals: 18 },
+  '0xc00e94cb662c3520282e6f5717214004a7f26888': { symbol: 'COMP',  decimals: 18 },
+  '0x4d224452801aced8b2f0aebe155379bb5d594381': { symbol: 'APE',   decimals: 18 },
+  '0xc18360217d8f7ab5e7c516566761ea12ce7f9d72': { symbol: 'ENS',   decimals: 18 },
+  '0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0': { symbol: 'MATIC', decimals: 18 },
+  '0x0f2d719407fdbeff09d87557abb7232601fd9f29': { symbol: 'SYN',   decimals: 18 },
+  '0x111111111117dc0aa78b770fa6a738034120c302': { symbol: '1INCH', decimals: 18 },
+  '0x6b3595068778dd592e39a122f4f5a5cf09c90fe2': { symbol: 'SUSHI', decimals: 18 },
+  '0xb50721bcf8d664c30412cfbc6cf7a15145234ad1': { symbol: 'ARB',   decimals: 18 },
+  '0x6810e776880c02933d47db1b9fc05908e5386b96': { symbol: 'GNO',   decimals: 18 },
+  '0xcfeaead4947f0705a14ec42ac3d44129e1ef3ed5': { symbol: 'NOTE',  decimals: 8  },
+};
+
+// DEX router / aggregator addresses → human-readable platform name.
+const ETH_PLATFORMS = {
+  '0x7a250d5630b4cf539739df2c5dacb4c659f2488d': 'Uniswap V2',
+  '0xe592427a0aece92de3edee1f18e0157c05861564': 'Uniswap V3',
+  '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45': 'Uniswap V3',
+  '0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad': 'Uniswap',
+  '0xef1c6e67703c7bd7107eed8303fbe6ec2554bf6b': 'Uniswap',
+  '0x66a9893cc07d91d95644aedd05d03f95e1dba8af': 'Uniswap',
+  '0x1111111254eeb25477b68fb85ed929f73a960582': '1inch',
+  '0x1111111254fb6c44bac0bed2854e76f90643097d': '1inch',
+  '0x111111125421ca6dc452d289314280a0f8842a65': '1inch',
+  '0xdef1c0ded9bec7f1a1670819833240f027b25eff': '0x Protocol',
+  '0x9008d19f58aabd9ed0d60971565aa8510560ab41': 'CowSwap',
+  '0xdef171fe48cf0115b1d80b88dc8eab59176fee57': 'Paraswap',
+  '0xe66b31678d6c16e9ebf358268a790b763c133750': '0x Protocol',
+  '0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f': 'SushiSwap',
+  '0xae7ab96520de3a18e5e111b5eaab095312d7fe84': 'Lido',
+  '0xdae9dd3d1a52cfce9d5f2fac7fde164d500e50f7': 'Rocket Pool',
+  '0xdc24316b9ae028f1497c275eb9192a3ea0f67022': 'Curve',
+};
+
+// ERC-20 Transfer(address,address,uint256) event topic0
+const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+// WETH Deposit(address,uint256) and Withdrawal(address,uint256)
+const WETH_DEPOSIT_TOPIC    = '0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c';
+const WETH_WITHDRAWAL_TOPIC = '0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65';
+const WETH_ADDRESS          = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+
 const KNOWN_TOKENS = {
   // Wrapped / native SOL
   'So11111111111111111111111111111111111111112':    'WSOL',
@@ -77,12 +148,12 @@ function fetchWithTimeout(url, options = {}, ms = 12000) {
     .catch(e => { clearTimeout(id); throw e; });
 }
 
-async function rpcCall(method, params, { retryOnNull = false } = {}) {
+async function rpcCallOn(endpoints, method, params, { retryOnNull = false } = {}) {
   const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params });
   const opts  = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
 
   let lastErr;
-  for (const endpoint of RPC_ENDPOINTS) {
+  for (const endpoint of endpoints) {
     try {
       const res  = await fetchWithTimeout(endpoint, opts, 15000);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -97,6 +168,15 @@ async function rpcCall(method, params, { retryOnNull = false } = {}) {
   }
   if (lastErr) throw lastErr;
   return { result: null }; // all endpoints returned null
+}
+
+// Back-compat wrapper used by existing Solana code paths.
+async function rpcCall(method, params, opts = {}) {
+  return rpcCallOn(RPC_ENDPOINTS, method, params, opts);
+}
+
+async function ethRpcCall(method, params, opts = {}) {
+  return rpcCallOn(ETH_RPC_ENDPOINTS, method, params, opts);
 }
 
 // ═══════════════════════════════════════════
@@ -317,11 +397,15 @@ async function parseTx(sig) {
     metaMap[c.mint] = await resolveSymbol(c.mint);
   }));
 
-  const tokenChanges = rawChanges.map(c => ({
-    mint:   c.mint,
-    delta:  c.delta,
-    symbol: c.mint === 'SOL_NATIVE' ? 'SOL' : (metaMap[c.mint] || trunc(c.mint)),
-  }));
+  const tokenChanges = rawChanges.map(c => {
+    const resolved = c.mint === 'SOL_NATIVE' || !!metaMap[c.mint];
+    return {
+      mint:     c.mint,
+      delta:    c.delta,
+      symbol:   c.mint === 'SOL_NATIVE' ? 'SOL' : (metaMap[c.mint] || trunc(c.mint)),
+      resolved, // false when we only have the mint address as fallback
+    };
+  });
 
   // ── Infer transaction type ────────────────────────────────────────────
   const inc    = tokenChanges.filter(c => c.delta > 0);
@@ -373,12 +457,278 @@ async function parseTx(sig) {
   }
 
   return {
+    chain:           'solana',
+    nativeSymbol:    'SOL',
     type,
     date:            formatDate(blockTime),
     wallet:          trunc(signer),
     platform,
     tokenChanges,
     solDelta,
+    usdValue,
+  };
+}
+
+// ═══════════════════════════════════════════
+//  ETHEREUM PARSER
+// ═══════════════════════════════════════════
+
+// Parse a 256-bit hex log topic/word into a lowercased 0x-prefixed address.
+function topicToAddress(topic) {
+  if (!topic || topic.length < 42) return null;
+  return '0x' + topic.slice(-40).toLowerCase();
+}
+
+// Convert a hex uint256 value + decimals into a JS number.
+function hexToAmount(hex, decimals) {
+  if (!hex) return 0;
+  try {
+    const big = BigInt(hex);
+    // Scale down via string manipulation to preserve precision for large values.
+    const s = big.toString();
+    if (decimals <= 0) return Number(s);
+    if (s.length <= decimals) {
+      return parseFloat('0.' + s.padStart(decimals, '0'));
+    }
+    const whole = s.slice(0, s.length - decimals);
+    const frac  = s.slice(s.length - decimals);
+    return parseFloat(whole + '.' + frac);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function hexToNumber(hex) {
+  if (!hex) return 0;
+  try { return Number(BigInt(hex)); } catch (_) { return parseInt(hex, 16) || 0; }
+}
+
+// Resolve ERC-20 symbol + decimals: known list → on-chain eth_call → fallback.
+const ethTokenMetaCache = {};
+
+function encodeCall(sel, arg) {
+  // sel = 4-byte selector (hex, no 0x). arg = 0x-prefixed 20-byte address (or empty).
+  if (!arg) return '0x' + sel;
+  return '0x' + sel + arg.replace(/^0x/, '').padStart(64, '0');
+}
+
+function decodeString(hex) {
+  // ABI-encoded string: offset (32B) | length (32B) | data
+  if (!hex || hex === '0x' || hex.length < 130) return null;
+  const h = hex.replace(/^0x/, '');
+  try {
+    const len = parseInt(h.slice(64, 128), 16);
+    if (!len || len > 256) {
+      // Maybe bytes32 — truncate at first null.
+      const bytes32 = h.slice(0, 64);
+      let s = '';
+      for (let i = 0; i < bytes32.length; i += 2) {
+        const b = parseInt(bytes32.slice(i, i + 2), 16);
+        if (b === 0) break;
+        s += String.fromCharCode(b);
+      }
+      return s || null;
+    }
+    const dataHex = h.slice(128, 128 + len * 2);
+    let s = '';
+    for (let i = 0; i < dataHex.length; i += 2) {
+      s += String.fromCharCode(parseInt(dataHex.slice(i, i + 2), 16));
+    }
+    return s || null;
+  } catch (_) { return null; }
+}
+
+async function resolveEthToken(addr) {
+  const key = addr.toLowerCase();
+  if (KNOWN_ETH_TOKENS[key]) return { ...KNOWN_ETH_TOKENS[key], resolved: true };
+  if (ethTokenMetaCache[key]) return ethTokenMetaCache[key];
+
+  // On-chain calls: symbol() and decimals()
+  let symbol = null, decimals = 18;
+  try {
+    const [symResp, decResp] = await Promise.all([
+      ethRpcCall('eth_call', [{ to: key, data: encodeCall('95d89b41') }, 'latest']),
+      ethRpcCall('eth_call', [{ to: key, data: encodeCall('313ce567') }, 'latest']),
+    ]);
+    symbol = decodeString(symResp?.result);
+    if (decResp?.result && decResp.result !== '0x') {
+      const d = parseInt(decResp.result, 16);
+      if (Number.isFinite(d) && d >= 0 && d <= 36) decimals = d;
+    }
+  } catch (_) {}
+
+  // CoinGecko fallback for symbol
+  if (!symbol) {
+    try {
+      const res  = await fetchWithTimeout(
+        `https://api.coingecko.com/api/v3/coins/ethereum/contract/${encodeURIComponent(key)}`, {}, 8000);
+      const data = await res.json();
+      symbol = data?.symbol?.toUpperCase?.() || null;
+    } catch (_) {}
+  }
+
+  const meta = { symbol: symbol || trunc(addr), decimals, resolved: !!symbol };
+  ethTokenMetaCache[key] = meta;
+  return meta;
+}
+
+function validEthHash(s) {
+  return /^0x[0-9a-fA-F]{64}$/.test(s);
+}
+
+async function parseEthTx(hash) {
+  // Fetch tx + receipt in parallel; block for timestamp after we have the receipt.
+  const [txResp, rcResp] = await Promise.all([
+    ethRpcCall('eth_getTransactionByHash', [hash]),
+    ethRpcCall('eth_getTransactionReceipt',  [hash]),
+  ]);
+
+  const tx = txResp?.result;
+  const rc = rcResp?.result;
+  if (!tx || !rc) return null;
+  if (rc.status && rc.status !== '0x1') {
+    // Tx reverted — still return minimal info so we can message the user.
+    return { __reverted: true };
+  }
+
+  const blockResp = await ethRpcCall('eth_getBlockByNumber', [rc.blockNumber, false]);
+  const blockTime = hexToNumber(blockResp?.result?.timestamp);
+
+  const signer  = (tx.from || '').toLowerCase();
+  const toAddr  = (tx.to   || '').toLowerCase();
+  const value   = BigInt(tx.value || '0x0');
+
+  // Aggregate ERC-20 Transfer events where signer is sender/receiver.
+  // Also detect WETH Deposit/Withdrawal (represent native-ETH <-> WETH flow).
+  const logs = rc.logs || [];
+  const tokenDeltas = {}; // contract addr -> bigint raw delta for signer
+  let wethWithdrawnToSigner = 0n; // WETH -> ETH unwrap received by signer
+  let wethDepositedBySigner = 0n; // ETH -> WETH wrap made by signer
+
+  for (const log of logs) {
+    const contract = (log.address || '').toLowerCase();
+    const t0 = log.topics?.[0];
+    if (!t0) continue;
+
+    if (t0 === ERC20_TRANSFER_TOPIC && log.topics.length >= 3) {
+      const fromA = topicToAddress(log.topics[1]);
+      const toA   = topicToAddress(log.topics[2]);
+      const raw   = BigInt(log.data && log.data !== '0x' ? log.data : '0x0');
+      if (fromA === signer) tokenDeltas[contract] = (tokenDeltas[contract] || 0n) - raw;
+      if (toA   === signer) tokenDeltas[contract] = (tokenDeltas[contract] || 0n) + raw;
+    } else if (t0 === WETH_WITHDRAWAL_TOPIC && contract === WETH_ADDRESS) {
+      // Withdrawal(address indexed src, uint wad)
+      const who = topicToAddress(log.topics[1]);
+      const raw = BigInt(log.data && log.data !== '0x' ? log.data : '0x0');
+      if (who === signer) wethWithdrawnToSigner += raw;
+    } else if (t0 === WETH_DEPOSIT_TOPIC && contract === WETH_ADDRESS) {
+      // Deposit(address indexed dst, uint wad)
+      const who = topicToAddress(log.topics[1]);
+      const raw = BigInt(log.data && log.data !== '0x' ? log.data : '0x0');
+      if (who === signer) wethDepositedBySigner += raw;
+    }
+  }
+
+  // Native ETH delta approximation:
+  //   - signer sent `value` in tx (negative)
+  //   - if tx.to is signer and value > 0, treat as receive (rare: self-send; usually eth_transfer)
+  //   - WETH unwraps that returned native ETH to signer are additive
+  //   - WETH wraps where signer deposited native ETH are subtractive
+  // Gas cost is intentionally excluded so UI delta reflects economic intent, not gas overhead.
+  let nativeDeltaRaw = 0n;
+  if (value > 0n) {
+    if (toAddr === signer) nativeDeltaRaw += value; // incoming transfer to self — unusual
+    else nativeDeltaRaw -= value;                   // signer spent ETH
+  }
+  nativeDeltaRaw += wethWithdrawnToSigner;
+  nativeDeltaRaw -= wethDepositedBySigner;
+  const nativeDelta = Number(nativeDeltaRaw) / 1e18;
+
+  // Build raw token-change list (excluding WETH if native flow already represents it).
+  const rawChanges = [];
+  for (const [addr, rawDelta] of Object.entries(tokenDeltas)) {
+    if (rawDelta === 0n) continue;
+    // If this is a WETH Transfer that corresponds to a wrap/unwrap already reflected
+    // in nativeDelta, skip it to avoid double-counting.
+    if (addr === WETH_ADDRESS) {
+      if (wethWithdrawnToSigner > 0n || wethDepositedBySigner > 0n) continue;
+    }
+    rawChanges.push({ addr, rawDelta });
+  }
+
+  // Resolve symbols + decimals for each changed token.
+  const metas = await Promise.all(rawChanges.map(c => resolveEthToken(c.addr)));
+  const tokenChanges = rawChanges.map((c, i) => {
+    const meta = metas[i];
+    const signed = c.rawDelta < 0n ? -hexToAmount('0x' + (-c.rawDelta).toString(16), meta.decimals)
+                                   :  hexToAmount('0x' +  c.rawDelta.toString(16),   meta.decimals);
+    return {
+      mint:     c.addr,
+      delta:    signed,
+      symbol:   meta.symbol,
+      resolved: meta.resolved,
+    };
+  });
+
+  // Infer transaction type (same taxonomy as Solana: SWAP/BUY/SELL/SEND/RECEIVE/STAKE).
+  const inc = tokenChanges.filter(c => c.delta > 0);
+  const dec = tokenChanges.filter(c => c.delta < 0);
+
+  // Detect staking by: receiving a liquid-staking derivative as the dominant inflow,
+  // or interacting with a known staking contract.
+  const STAKE_SYMS = new Set(['stETH', 'wstETH', 'cbETH', 'rETH']);
+  const isStakeSym = inc.some(c => STAKE_SYMS.has(c.symbol));
+  const isStakePlatform = !!(toAddr && (
+    toAddr === '0xae7ab96520de3a18e5e111b5eaab095312d7fe84' || // Lido
+    toAddr === '0xdae9dd3d1a52cfce9d5f2fac7fde164d500e50f7' || // Rocket Pool deposit
+    toAddr === '0xbe9895146f7af43049ca1c1ae358b0541ea49704'    // Coinbase cbETH
+  ));
+
+  let type;
+  if      (inc.length >= 1 && dec.length >= 1)                       type = 'SWAP';
+  else if (isStakeSym || (isStakePlatform && value > 0n))            type = 'STAKE';
+  else if (inc.length >= 1 && nativeDelta < -0.0001)                 type = 'BUY';
+  else if (dec.length >= 1 && nativeDelta >  0.0001)                 type = 'SELL';
+  else if (inc.length >= 1 && Math.abs(nativeDelta) < 0.0001)        type = 'RECEIVE';
+  else if (dec.length >= 1 && Math.abs(nativeDelta) < 0.0001)        type = 'SEND';
+  else if (nativeDelta < -0.0001)                                    type = 'SEND';
+  else if (nativeDelta >  0.0001)                                    type = 'RECEIVE';
+  else                                                               type = 'UNKNOWN';
+
+  // Platform from tx.to
+  let platform = ETH_PLATFORMS[toAddr] || null;
+
+  // USD value
+  const STABLE_SYMS = new Set(['USDC', 'USDT', 'DAI', 'FRAX', 'USDe']);
+  let usdValue = null;
+  for (const c of tokenChanges) {
+    if (STABLE_SYMS.has(c.symbol)) { usdValue = Math.abs(c.delta); break; }
+  }
+  if (usdValue === null && Math.abs(nativeDelta) > 0.00001) {
+    try {
+      const txDate = new Date(blockTime * 1000);
+      const dd   = String(txDate.getUTCDate()).padStart(2, '0');
+      const mm   = String(txDate.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = txDate.getUTCFullYear();
+      const res  = await fetchWithTimeout(
+        `https://api.coingecko.com/api/v3/coins/ethereum/history?date=${dd}-${mm}-${yyyy}&localization=false`, {}, 10000);
+      const data  = await res.json();
+      const price = data?.market_data?.current_price?.usd ?? null;
+      if (price !== null) usdValue = Math.abs(nativeDelta) * price;
+    } catch (_) {}
+  }
+
+  return {
+    chain:           'ethereum',
+    nativeSymbol:    'ETH',
+    type,
+    date:            formatDate(blockTime),
+    wallet:          trunc(signer),
+    platform,
+    tokenChanges,
+    // Keep the field name `solDelta` for rendering-layer compatibility — it
+    // represents the native-coin delta regardless of chain.
+    solDelta:        nativeDelta,
     usdValue,
   };
 }
@@ -481,6 +831,14 @@ function validSig(s) {
   return /^[1-9A-HJ-NP-Za-km-z]{87,88}$/.test(s);
 }
 
+// Auto-detect which chain the user pasted.
+// Returns 'solana' | 'ethereum' | null.
+function detectChain(s) {
+  if (validEthHash(s))       return 'ethereum';
+  if (validSig(s))           return 'solana';
+  return null;
+}
+
 // ═══════════════════════════════════════════
 //  MAIN FETCH FLOW
 // ═══════════════════════════════════════════
@@ -548,9 +906,11 @@ document.getElementById('demo-btn').addEventListener('click', async () => {
 
 fetchBtn.addEventListener('click', async () => {
   const sig = sigInput.value.trim();
-  if (!sig) { showInputError('Please paste a transaction signature.'); return; }
-  if (!validSig(sig)) {
-    showInputError('That doesn\'t look like a Solana signature. Signatures are 87–88 base58 characters — you can find yours on Solscan or in your wallet\'s transaction history.');
+  if (!sig) { showInputError('Please paste a transaction signature or hash.'); return; }
+
+  const chain = detectChain(sig);
+  if (!chain) {
+    showInputError('That doesn\'t look like a valid transaction. Paste a Solana signature (87–88 base58 characters) or an Ethereum transaction hash (0x + 64 hex characters) — you can find yours on Solscan, Etherscan, or in your wallet\'s history.');
     return;
   }
 
@@ -558,18 +918,27 @@ fetchBtn.addEventListener('click', async () => {
   inputError.classList.remove('visible');
   fetchBtn.disabled = true;
 
+  const chainLabel = chain === 'ethereum' ? 'Ethereum' : 'Solana';
+
   goToStep(1);
-  fStatus.textContent = 'Connecting to Solana…';
+  fStatus.textContent = `Connecting to ${chainLabel}…`;
   fSub.textContent    = 'Querying public RPC endpoints';
 
   try {
     fStatus.textContent = 'Fetching transaction…';
     fSub.textContent    = 'Resolving token symbols — this may take a few seconds';
-    txData = await parseTx(sig);
+    txData = chain === 'ethereum' ? await parseEthTx(sig) : await parseTx(sig);
 
     if (!txData) {
       goToStep(0);
-      showInputError('Transaction not found. Double-check the signature or wait a minute if it was just submitted — it may still be finalising on-chain.');
+      showInputError('Transaction not found. Double-check the hash or wait a minute if it was just submitted — it may still be finalising on-chain.');
+      return;
+    }
+
+    if (txData.__reverted) {
+      goToStep(0);
+      showInputError('This Ethereum transaction reverted on-chain and has no successful outcome to display.');
+      txData = null;
       return;
     }
 
@@ -587,9 +956,9 @@ fetchBtn.addEventListener('click', async () => {
     goToStep(0);
     const isNetworkErr = e.name === 'AbortError' || e.name === 'TypeError' || /network|fetch|timeout/i.test(e.message);
     if (isNetworkErr) {
-      showInputError('Could not reach the Solana network. Check your connection and try again — public RPC endpoints can occasionally be slow.');
+      showInputError(`Could not reach the ${chainLabel} network. Check your connection and try again — public RPC endpoints can occasionally be slow.`);
     } else if (/not found|invalid/i.test(e.message)) {
-      showInputError('Transaction not found. Make sure you\'re using the full signature (not a shortened link or tx hash).');
+      showInputError('Transaction not found. Make sure you\'re using the full signature or hash (not a shortened link).');
     } else {
       showInputError('Something went wrong parsing this transaction. If the problem persists, please report it to cryptosocialproof@protonmail.com.');
     }
@@ -602,7 +971,8 @@ fetchBtn.addEventListener('click', async () => {
 //  CONFIRM SCREEN
 // ═══════════════════════════════════════════
 function renderConfirm() {
-  const { type, date, wallet, platform, tokenChanges, solDelta } = txData;
+  const { type, date, wallet, platform, tokenChanges, solDelta, nativeSymbol } = txData;
+  const native = nativeSymbol || 'SOL';
   const showP = document.getElementById('tog-platform').checked;
 
   let html = '';
@@ -624,7 +994,7 @@ function renderConfirm() {
     if (tokenChanges.length === 0 && Math.abs(solDelta) > 0.000001) {
       const sign  = solDelta > 0 ? '+' : '−';
       const color = solDelta > 0 ? '#22c55e' : '#ef4444';
-      html += row('SOL', `<span style="color:${color}">${sign}${fmtAmt(solDelta)} SOL</span>`);
+      html += row(native, `<span style="color:${color}">${sign}${fmtAmt(solDelta)} ${native}</span>`);
     }
   }
 
@@ -904,9 +1274,16 @@ function selectSize(s) {
 
 // ═══════════════════════════════════════════
 //  CARD DATA
+// Returns a clean symbol safe to print on a card.
+// Unresolved mints (fallback truncated address) become "???" so the card
+// still reads naturally without exposing a raw mint address.
+function cardSym(tc) {
+  return tc.resolved ? tc.symbol : '???';
+}
+
 // ═══════════════════════════════════════════
 function getCardPayload() {
-  const { type, date, wallet, platform, tokenChanges, solDelta, usdValue } = txData;
+  const { type, date, wallet, platform, tokenChanges, solDelta, usdValue, chain, nativeSymbol } = txData;
   const showP   = document.getElementById('tog-platform').checked;
   const showUsd = document.getElementById('tog-usd').checked;
 
@@ -915,13 +1292,13 @@ function getCardPayload() {
   if (type === 'SWAP') {
     const dec = tokenChanges.find(c => c.delta < 0);
     const inc = tokenChanges.find(c => c.delta > 0);
-    if (dec) primary   = { symbol: dec.symbol, amount: fmtAmt(Math.abs(dec.delta)) };
-    if (inc) secondary = { symbol: inc.symbol, amount: fmtAmt(inc.delta) };
+    if (dec) primary   = { symbol: cardSym(dec), amount: fmtAmt(Math.abs(dec.delta)) };
+    if (inc) secondary = { symbol: cardSym(inc), amount: fmtAmt(inc.delta) };
   } else if (tokenChanges.length > 0) {
     const t = tokenChanges[0];
-    primary = { symbol: t.symbol, amount: fmtAmt(Math.abs(t.delta)) };
+    primary = { symbol: cardSym(t), amount: fmtAmt(Math.abs(t.delta)) };
   } else if (Math.abs(solDelta) > 0.000001) {
-    primary = { symbol: 'SOL', amount: fmtAmt(Math.abs(solDelta)) };
+    primary = { symbol: nativeSymbol || 'SOL', amount: fmtAmt(Math.abs(solDelta)) };
   }
 
   const amtColor = (type === 'BUY' || type === 'RECEIVE' || type === 'STAKE') ? 'green'
@@ -935,6 +1312,10 @@ function getCardPayload() {
     primary, secondary,
     amtColor,
     usdValue: (showUsd && usdValue != null) ? fmtUsd(usdValue) : null,
+    chain:        chain        || 'solana',
+    chainLabel:   chain === 'ethereum' ? 'Ethereum' : 'Solana',
+    chainUpper:   chain === 'ethereum' ? 'ETHEREUM' : 'SOLANA',
+    nativeSymbol: nativeSymbol || 'SOL',
   };
 }
 
@@ -1115,7 +1496,7 @@ function cardNeon(d, w, h) {
   return `
 <div class="card-root t-neon" style="width:${w}px;height:${h}px">
   <div class="neon-inner">
-    <div class="neon-label">Solana Blockchain</div>
+    <div class="neon-label">${d.chainLabel} Blockchain</div>
     <div class="neon-decos">
       <span class="neon-deco">${dl}</span>
       <div class="neon-type" style="font-size:${typeSize}">${d.type}</div>
@@ -1173,7 +1554,7 @@ function cardTerminal(d, w, h) {
   return `
 <div class="card-root t-terminal" style="width:${w}px;height:${h}px">
   <div class="term-inner">
-    <div class="term-prompt">$ solana verify --sig ${shortSig}<span class="term-cursor"></span></div>
+    <div class="term-prompt">$ ${d.chain || 'solana'} verify --${d.chain === 'ethereum' ? 'hash' : 'sig'} ${shortSig}<span class="term-cursor"></span></div>
     <div class="term-type-line">&gt; ${d.type}</div>
     <div class="term-rows">${rows}
     </div>
@@ -1206,7 +1587,7 @@ function cardAurora(d, w, h) {
   return `
 <div class="card-root t-aurora" style="width:${w}px;height:${h}px">
   <div class="aurora-inner">
-    <div class="aurora-tag">✦ Solana Verified</div>
+    <div class="aurora-tag">✦ ${d.chainLabel} Verified</div>
     <div class="aurora-type">${d.type}</div>
     ${amtBlock}
     ${d.usdValue ? `<div class="aurora-usd">≈ ${d.usdValue}</div>` : ''}
@@ -1401,7 +1782,7 @@ function cardGradient(d, w, h) {
 <div class="card-root t-gradient" style="width:${w}px;height:${h}px;background:${bg}">
   <div class="grad-overlay"></div>
   <div class="grad-inner">
-    <div class="grad-tag">Solana · Verified</div>
+    <div class="grad-tag">${d.chainLabel} · Verified</div>
     <div class="grad-type">${d.type}</div>
     ${amtBlock}
     ${d.usdValue ? `<div class="grad-usd">≈ ${d.usdValue}</div>` : ''}
@@ -1497,7 +1878,7 @@ function cardBold(d, w, h) {
   <div class="bold-body">
     <div class="bold-ghost">${d.type}</div>
     <div class="bold-top">
-      <div class="bold-type-label">${d.type} · Solana</div>
+      <div class="bold-type-label">${d.type} · ${d.chainLabel}</div>
       ${amtBlock}
       ${d.usdValue ? `<div class="bold-usd">≈ ${d.usdValue}</div>` : ''}
     </div>
@@ -1553,7 +1934,7 @@ function cardStats(d, w, h) {
   if (d.date)                      rows += statRow('DATE', d.date);
   if (d.platform)                  rows += statRow('VIA', d.platform);
   if (isSwap && d.usdValue)        rows += statRow('VALUE', `≈ ${d.usdValue}`);
-  rows += statRow('NETWORK', 'Solana Mainnet');
+  rows += statRow('NETWORK', `${d.chainLabel} Mainnet`);
   rows += statRow('STATUS', 'Confirmed ✓');
 
   return `
@@ -1562,7 +1943,7 @@ function cardStats(d, w, h) {
   <div class="stats-inner">
     <div class="stats-header">
       <div class="stats-type">${d.type}</div>
-      <div class="stats-chain">SOLANA</div>
+      <div class="stats-chain">${d.chainUpper}</div>
     </div>
     ${amtSection}
     <div class="stats-rows">${rows}</div>

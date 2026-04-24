@@ -3,21 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CryptoSocialProof — Solana Proof Card Generator</title>
-  <meta name="description" content="Generate shareable proof cards for any Solana transaction. No sign-up, no backend — paste a signature and download a PNG.">
+  <title>CryptoSocialProof — Solana & Ethereum Proof Card Generator</title>
+  <meta name="description" content="Generate shareable proof cards for any Solana or Ethereum transaction. No sign-up, no backend — paste a signature or hash and download a PNG.">
+
+  <link rel="canonical" href="https://cryptosocialproof.com/">
 
   <!-- Open Graph -->
-  <meta property="og:type"        content="website">
-  <meta property="og:title"       content="CryptoSocialProof — Solana Proof Card Generator">
-  <meta property="og:description" content="Generate shareable proof cards for any Solana transaction. No sign-up, no backend — paste a signature and download a PNG.">
-  <meta property="og:image"       content="https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/og-image.png">
-  <meta property="og:url"         content="https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/">
+  <meta property="og:type"             content="website">
+  <meta property="og:site_name"        content="CryptoSocialProof">
+  <meta property="og:title"            content="CryptoSocialProof — Solana & Ethereum Proof Card Generator">
+  <meta property="og:description"      content="Generate shareable proof cards for any Solana or Ethereum transaction. No sign-up, no backend — paste a signature or hash and download a PNG.">
+  <meta property="og:image"            content="https://cryptosocialproof.com/og-image.png">
+  <meta property="og:image:secure_url" content="https://cryptosocialproof.com/og-image.png">
+  <meta property="og:image:type"       content="image/png">
+  <meta property="og:image:width"      content="1200">
+  <meta property="og:image:height"     content="630">
+  <meta property="og:image:alt"        content="CryptoSocialProof — generate shareable proof cards for Solana and Ethereum transactions">
+  <meta property="og:url"              content="https://cryptosocialproof.com/">
 
   <!-- Twitter / X -->
   <meta name="twitter:card"        content="summary_large_image">
-  <meta name="twitter:title"       content="CryptoSocialProof — Solana Proof Card Generator">
-  <meta name="twitter:description" content="Generate shareable proof cards for any Solana transaction. No sign-up, no backend — paste a signature and download a PNG.">
-  <meta name="twitter:image"       content="https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/og-image.png">
+  <meta name="twitter:title"       content="CryptoSocialProof — Solana & Ethereum Proof Card Generator">
+  <meta name="twitter:description" content="Generate shareable proof cards for any Solana or Ethereum transaction. No sign-up, no backend — paste a signature or hash and download a PNG.">
+  <meta name="twitter:image"       content="https://cryptosocialproof.com/og-image.png">
+  <meta name="twitter:image:alt"   content="CryptoSocialProof — generate shareable proof cards for Solana and Ethereum transactions">
+  <meta name="twitter:domain"      content="cryptosocialproof.com">
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="index.css">
@@ -28,7 +38,7 @@
 
   <div class="header">
     <h1><a href="#" onclick="resetApp(); return false;">Crypto<span>Social</span>Proof</a></h1>
-    <p>Generate a shareable proof card for any Solana transaction</p>
+    <p>Generate a shareable proof card for any Solana or Ethereum transaction</p>
     <button class="reset-btn" id="reset-btn" onclick="resetApp()">↺ Start over</button>
   </div>
 
@@ -42,17 +52,17 @@
 
   <!-- Step 0: Input -->
   <div class="step-panel" id="step-0">
-    <label class="input-label" for="sig-input">Transaction Signature</label>
+    <label class="input-label" for="sig-input">Transaction Signature or Hash</label>
     <input
       type="text"
       id="sig-input"
       class="sig-input"
-      placeholder="Paste your Solana transaction signature…"
+      placeholder="Paste a Solana signature or Ethereum tx hash…"
       autocomplete="off"
       spellcheck="false"
     />
     <div class="error-msg" id="input-error"></div>
-    <p class="input-hint">Your signature is used only to fetch transaction data from public Solana RPC endpoints and is never stored. No API key required. <span class="input-hint-sep">·</span> Due to the nature of free public nodes, transactions older than a few months may no longer be available.</p>
+    <p class="input-hint">Your signature or hash is used only to fetch transaction data from public Solana or Ethereum RPC endpoints and is never stored. No API key required. <span class="input-hint-sep">·</span> The chain is auto-detected from the format. Due to the nature of free public nodes, older transactions may occasionally be unavailable.</p>
     <button class="primary-btn" id="fetch-btn">Fetch Transaction →</button>
     <button class="demo-btn" id="demo-btn">Try an example →</button>
   </div>
@@ -61,7 +71,7 @@
   <div class="step-panel hidden" id="step-1">
     <div class="fetching-center">
       <div class="spinner"></div>
-      <div class="fetching-status" id="fetching-status">Connecting to Solana network…</div>
+      <div class="fetching-status" id="fetching-status">Connecting to the network…</div>
       <div class="fetching-sub" id="fetching-sub"></div>
     </div>
   </div>
@@ -220,7 +230,7 @@
   <span class="footer-sep">·</span>
   <a href="#" onclick="openBugModal(); return false;">Report a bug</a>
   <span class="footer-sep">·</span>
-  <span>Built for Solana</span>
+  <span>Built for Solana &amp; Ethereum</span>
 </footer>
 
 <!-- Export overlay -->
