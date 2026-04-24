@@ -613,7 +613,11 @@ async function parseEthTx(hash) {
     if (t0 === ERC20_TRANSFER_TOPIC && log.topics.length >= 3) {
       const fromA = topicToAddress(log.topics[1]);
       const toA   = topicToAddress(log.topics[2]);
-      const raw   = BigInt(log.data && log.data !== '0x' ? log.data : '0x0');
+      // Standard ERC-20: amount in data. Non-standard tokens (e.g. some deflationary
+      // tokens) index all three params so data is 0x — fall back to topics[3].
+      const raw = log.data && log.data !== '0x'
+        ? BigInt(log.data)
+        : (log.topics.length >= 4 && log.topics[3] ? BigInt(log.topics[3]) : 0n);
       if (fromA === signer) tokenDeltas[contract] = (tokenDeltas[contract] || 0n) - raw;
       if (toA   === signer) tokenDeltas[contract] = (tokenDeltas[contract] || 0n) + raw;
     } else if (t0 === WETH_WITHDRAWAL_TOPIC && contract === WETH_ADDRESS) {
@@ -626,6 +630,29 @@ async function parseEthTx(hash) {
       const who = topicToAddress(log.topics[1]);
       const raw = BigInt(log.data && log.data !== '0x' ? log.data : '0x0');
       if (who === signer) wethDepositedBySigner += raw;
+    }
+  }
+
+  // Smart-wallet fallback: if tx.from (EOA executor) has no token deltas, check whether
+  // tx.to (e.g. a Safe / Argent / AA wallet) appears in Transfer events as the real actor.
+  // This handles multisig/smart-contract-wallet users where the contract, not the EOA, holds tokens.
+  if (Object.values(tokenDeltas).every(d => d === 0n) && toAddr) {
+    const altDeltas = {};
+    for (const log of logs) {
+      const contract = (log.address || '').toLowerCase();
+      const t0 = log.topics?.[0];
+      if (t0 !== ERC20_TRANSFER_TOPIC || log.topics.length < 3) continue;
+      const fromA = topicToAddress(log.topics[1]);
+      const toA2  = topicToAddress(log.topics[2]);
+      const raw = log.data && log.data !== '0x'
+        ? BigInt(log.data)
+        : (log.topics.length >= 4 && log.topics[3] ? BigInt(log.topics[3]) : 0n);
+      if (fromA === toAddr) altDeltas[contract] = (altDeltas[contract] || 0n) - raw;
+      if (toA2  === toAddr) altDeltas[contract] = (altDeltas[contract] || 0n) + raw;
+    }
+    // Only adopt altDeltas if they give us a non-zero signal
+    if (Object.values(altDeltas).some(d => d !== 0n)) {
+      for (const [k, v] of Object.entries(altDeltas)) tokenDeltas[k] = v;
     }
   }
 
