@@ -71,6 +71,43 @@ body {
 .step-panel.hidden { display: none; }
 .hidden { display: none !important; }
 
+/* ---- Trust + how-it-works strip (step 0) ---- */
+.trust-strip {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.trust-badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #4f52a0;
+  background: #eef0ff;
+  border: 1px solid #dde0ff;
+  border-radius: 20px;
+  padding: 4px 11px;
+  white-space: nowrap;
+}
+.how-strip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.how-step {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #555;
+}
+.how-arrow {
+  font-size: 11px;
+  color: #c0c0c0;
+  font-weight: 400;
+}
+
 /* ---- Input step ---- */
 .input-label {
   display: block;
@@ -291,7 +328,7 @@ body {
   position: relative; overflow: hidden;
 }
 .tp-terminal::after {
-  content: '> TX_CONFIRMED\A> AMOUNT...\A> SOLANA OK';
+  content: '> TX_CONFIRMED\A> AMOUNT...\A> CHAIN: OK';
   white-space: pre;
   position: absolute; top: 4px; left: 6px;
   font-size: 6.5px; font-family: 'Courier New', monospace;

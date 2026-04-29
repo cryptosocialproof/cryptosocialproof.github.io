@@ -998,8 +998,8 @@ fetchBtn.addEventListener('click', async () => {
 //  CONFIRM SCREEN
 // ═══════════════════════════════════════════
 function renderConfirm() {
-  const { type, date, wallet, platform, tokenChanges, solDelta, nativeSymbol } = txData;
-  const native = nativeSymbol || 'SOL';
+  const { type, date, wallet, platform, tokenChanges, solDelta, nativeSymbol, chain } = txData;
+  const native = nativeSymbol || (chain === 'ethereum' ? 'ETH' : 'SOL');
   const showP = document.getElementById('tog-platform').checked;
 
   let html = '';
@@ -1325,7 +1325,7 @@ function getCardPayload() {
     const t = tokenChanges[0];
     primary = { symbol: cardSym(t), amount: fmtAmt(Math.abs(t.delta)) };
   } else if (Math.abs(solDelta) > 0.000001) {
-    primary = { symbol: nativeSymbol || 'SOL', amount: fmtAmt(Math.abs(solDelta)) };
+    primary = { symbol: nativeSymbol || (chain === 'ethereum' ? 'ETH' : 'SOL'), amount: fmtAmt(Math.abs(solDelta)) };
   }
 
   const amtColor = (type === 'BUY' || type === 'RECEIVE' || type === 'STAKE') ? 'green'
@@ -1342,7 +1342,7 @@ function getCardPayload() {
     chain:        chain        || 'solana',
     chainLabel:   chain === 'ethereum' ? 'Ethereum' : 'Solana',
     chainUpper:   chain === 'ethereum' ? 'ETHEREUM' : 'SOLANA',
-    nativeSymbol: nativeSymbol || 'SOL',
+    nativeSymbol: nativeSymbol || (chain === 'ethereum' ? 'ETH' : 'SOL'),
   };
 }
 
