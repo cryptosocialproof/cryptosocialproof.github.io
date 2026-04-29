@@ -26,6 +26,12 @@ const KNOWN_ETH_TOKENS = {
   '0x6b175474e89094c44da98b954eedeac495271d0f': { symbol: 'DAI',   decimals: 18 },
   '0x853d955acef822db058eb8505911ed77f175b99e': { symbol: 'FRAX',  decimals: 18 },
   '0x4c9edd5852cd905f086c759e8383e09bff1e68b3': { symbol: 'USDe',  decimals: 18 },
+  '0x0000000000085d4780b73119b644ae5ecd22b376': { symbol: 'TUSD',  decimals: 18 },
+  '0x8e870d67f660d95d5be530380d0ec0bd388289e1': { symbol: 'USDP',  decimals: 18 },
+  '0x5f98805a4e8be255a32880fdec7f6728c6568ba0': { symbol: 'LUSD',  decimals: 18 },
+  '0xf939e0a03fb07f59a73314e73794be0e57ac1b4e': { symbol: 'crvUSD',decimals: 18 },
+  '0x056fd409e1d7a124bd7017459dfea2f387b6d5cd': { symbol: 'GUSD',  decimals: 2  },
+  '0xdc035d45d973e3ec169d2276ddab16f1e407384f': { symbol: 'USDS',  decimals: 18 },
   '0x57e114b691db790c35207b2e685d4a43181e6061': { symbol: 'ENA',   decimals: 18 },
   '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': { symbol: 'WETH',  decimals: 18 },
   '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599': { symbol: 'WBTC',  decimals: 8  },
@@ -136,6 +142,71 @@ const SPL_PROGRAMS = new Set([
   'TokenzQdBNbEqui37kbdmBCkFKnHfZ9rYnsFhmpRFrV',
 ]);
 
+// Stablecoin identification is done by mint/contract address rather than symbol
+// to defend against scam tokens that ape "USDC" / "USDT" branding. The USD
+// value displayed on a card is anchored to one of these addresses only.
+const SOLANA_STABLE_MINTS = new Set([
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+  '2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo', // PYUSD
+  'A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6', // USDY (yield-bearing, but $1-anchored)
+]);
+
+const ETH_STABLE_ADDRS = new Set([
+  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
+  '0xdac17f958d2ee523a2206206994597c13d831ec7', // USDT
+  '0x6b175474e89094c44da98b954eedeac495271d0f', // DAI
+  '0x853d955acef822db058eb8505911ed77f175b99e', // FRAX
+  '0x4c9edd5852cd905f086c759e8383e09bff1e68b3', // USDe
+  '0x0000000000085d4780b73119b644ae5ecd22b376', // TUSD
+  '0x8e870d67f660d95d5be530380d0ec0bd388289e1', // USDP
+  '0x5f98805a4e8be255a32880fdec7f6728c6568ba0', // LUSD
+  '0xf939e0a03fb07f59a73314e73794be0e57ac1b4e', // crvUSD
+  '0x056fd409e1d7a124bd7017459dfea2f387b6d5cd', // GUSD
+  '0xdc035d45d973e3ec169d2276ddab16f1e407384f', // USDS
+]);
+
+// ═══════════════════════════════════════════
+//  SAFETY HELPERS
+// ═══════════════════════════════════════════
+
+// HTML-escape any string before injecting into innerHTML / template literals.
+// All renderer entry points pipe untrusted fields (token symbols from external
+// APIs, on-chain string() decodes) through this — defence-in-depth against
+// XSS via maliciously named tokens.
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Normalise a token symbol coming from an external API or an on-chain
+// `symbol()` call into something safe to display:
+//   • strip control chars, zero-width / RTL marks, BOM
+//   • trim surrounding whitespace
+//   • reject anything containing HTML-special chars (no legit symbol has them)
+//   • cap to a reasonable length so scam tokens with 200-char names can't
+//     break card layout
+// Returns null when the input is unusable — callers treat null as "unresolved".
+function cleanSymbol(s) {
+  if (s == null) return null;
+  let cleaned = String(s)
+    // C0 controls + DEL + C1 controls
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    // Zero-width chars, BiDi marks/overrides/isolates, line/paragraph separators, BOM
+    .replace(/[\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '')
+    .trim();
+  if (!cleaned) return null;
+  // Any HTML-special char in a token symbol is almost certainly hostile.
+  if (/[<>"'\`&]/.test(cleaned)) return null;
+  if (cleaned.length > 16) cleaned = cleaned.slice(0, 16);
+  return cleaned;
+}
+
 // ═══════════════════════════════════════════
 //  NETWORK HELPERS
 // ═══════════════════════════════════════════
@@ -183,30 +254,63 @@ async function ethRpcCall(method, params, opts = {}) {
 //  TOKEN SYMBOL RESOLUTION
 // ═══════════════════════════════════════════
 
+// Cache: mint -> string (resolved symbol) | null (tried, no API knew it).
+// Storing null instead of trunc(mint) means later code can distinguish a real
+// resolution from a fallback, and downstream renderers can show "???" rather
+// than leaking a raw mint address.
 const symCache = {};
 
 async function resolveSymbol(mint) {
   if (KNOWN_TOKENS[mint]) return KNOWN_TOKENS[mint];
-  if (symCache[mint])     return symCache[mint];
+  if (mint in symCache)   return symCache[mint];
 
-  // 1) Jupiter token API
+  // 1) Jupiter token API — broad coverage of Solana ecosystem
   try {
-    const res  = await fetchWithTimeout(`https://tokens.jup.ag/token/${encodeURIComponent(mint)}`, {}, 8000);
-    const data = await res.json();
-    const sym  = data?.symbol?.toUpperCase?.() || null;
-    if (sym) { symCache[mint] = sym; return sym; }
+    const res = await fetchWithTimeout(`https://tokens.jup.ag/token/${encodeURIComponent(mint)}`, {}, 8000);
+    if (res.ok) {
+      const data = await res.json();
+      const sym  = cleanSymbol(data?.symbol);
+      if (sym) { const out = sym.toUpperCase(); symCache[mint] = out; return out; }
+    }
   } catch (_) { /* fall through */ }
 
-  // 2) CoinGecko fallback
+  // 2) GeckoTerminal — indexes any DEX-traded Solana token, including new/micro-cap
   try {
-    const res  = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/solana/contract/${encodeURIComponent(mint)}`, {}, 8000);
-    const data = await res.json();
-    const sym  = data?.symbol?.toUpperCase?.() || null;
-    if (sym) { symCache[mint] = sym; return sym; }
+    const res = await fetchWithTimeout(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${encodeURIComponent(mint)}`, {}, 8000);
+    if (res.ok) {
+      const data = await res.json();
+      const sym  = cleanSymbol(data?.data?.attributes?.symbol);
+      if (sym) { const out = sym.toUpperCase(); symCache[mint] = out; return out; }
+    }
   } catch (_) { /* fall through */ }
 
-  symCache[mint] = trunc(mint);
-  return symCache[mint];
+  // 3) DexScreener — especially strong on pump.fun and newly launched tokens.
+  // Only trust an entry where baseToken.address === mint (case-insensitive).
+  try {
+    const res = await fetchWithTimeout(`https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(mint)}`, {}, 8000);
+    if (res.ok) {
+      const data  = await res.json();
+      const pairs = (data?.pairs || []).filter(p => p.chainId === 'solana');
+      const match = pairs.find(p => (p.baseToken?.address || '').toLowerCase() === mint.toLowerCase());
+      const sym   = match ? cleanSymbol(match.baseToken?.symbol) : null;
+      if (sym) { const out = sym.toUpperCase(); symCache[mint] = out; return out; }
+    }
+  } catch (_) { /* fall through */ }
+
+  // 4) CoinGecko — listed tokens with market data
+  try {
+    const res = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/solana/contract/${encodeURIComponent(mint)}`, {}, 8000);
+    if (res.ok) {
+      const data = await res.json();
+      const sym  = cleanSymbol(data?.symbol);
+      if (sym) { const out = sym.toUpperCase(); symCache[mint] = out; return out; }
+    }
+  } catch (_) { /* fall through */ }
+
+  // Truly unresolved — record null so we don't hammer the APIs again this session,
+  // but a page reload will retry from scratch.
+  symCache[mint] = null;
+  return null;
 }
 
 // ═══════════════════════════════════════════
@@ -394,16 +498,20 @@ async function parseTx(sig) {
   // ── Resolve symbols ───────────────────────────────────────────────────
   const metaMap = {};
   await Promise.allSettled(rawChanges.map(async c => {
+    if (c.mint === 'SOL_NATIVE') return;
     metaMap[c.mint] = await resolveSymbol(c.mint);
   }));
 
   const tokenChanges = rawChanges.map(c => {
-    const resolved = c.mint === 'SOL_NATIVE' || !!metaMap[c.mint];
+    if (c.mint === 'SOL_NATIVE') {
+      return { mint: c.mint, delta: c.delta, symbol: 'SOL', resolved: true };
+    }
+    const sym = metaMap[c.mint]; // string when resolved, null/undefined otherwise
     return {
       mint:     c.mint,
       delta:    c.delta,
-      symbol:   c.mint === 'SOL_NATIVE' ? 'SOL' : (metaMap[c.mint] || trunc(c.mint)),
-      resolved, // false when we only have the mint address as fallback
+      symbol:   sym || trunc(c.mint),
+      resolved: !!sym, // explicitly track "really came from a token API"
     };
   });
 
@@ -430,12 +538,14 @@ async function parseTx(sig) {
   else if (logStr.includes('Raydium'))   platform = 'Raydium';
 
   // ── USD value (historical at time of tx) ─────────────────────────────
-  const STABLE_SYMS = new Set(['USDC', 'USDT', 'PYUSD', 'USDY']);
+  // Match stablecoins by *mint address* (SOLANA_STABLE_MINTS) rather than by
+  // symbol. A scam token can spoof the symbol "USDC" but not the canonical
+  // Circle mint, so this prevents quoting a fake USD value to the user.
   let usdValue = null;
 
-  // 1) If any token in the tx is a stablecoin, its amount IS the USD value
+  // 1) If any token in the tx is a known stablecoin (by mint), its amount IS the USD value
   for (const c of tokenChanges) {
-    if (STABLE_SYMS.has(c.symbol)) {
+    if (SOLANA_STABLE_MINTS.has(c.mint)) {
       usdValue = Math.abs(c.delta);
       break;
     }
@@ -543,31 +653,68 @@ async function resolveEthToken(addr) {
   if (KNOWN_ETH_TOKENS[key]) return { ...KNOWN_ETH_TOKENS[key], resolved: true };
   if (ethTokenMetaCache[key]) return ethTokenMetaCache[key];
 
-  // On-chain calls: symbol() and decimals()
-  let symbol = null, decimals = 18;
+  // On-chain calls: symbol() and decimals(). Both are settled() so a single
+  // failure (e.g. a contract that reverts on symbol()) doesn't block decimals.
+  let symbol = null, decimals = null;
   try {
-    const [symResp, decResp] = await Promise.all([
+    const [symRes, decRes] = await Promise.allSettled([
       ethRpcCall('eth_call', [{ to: key, data: encodeCall('95d89b41') }, 'latest']),
       ethRpcCall('eth_call', [{ to: key, data: encodeCall('313ce567') }, 'latest']),
     ]);
-    symbol = decodeString(symResp?.result);
-    if (decResp?.result && decResp.result !== '0x') {
-      const d = parseInt(decResp.result, 16);
-      if (Number.isFinite(d) && d >= 0 && d <= 36) decimals = d;
+    if (symRes.status === 'fulfilled') {
+      symbol = cleanSymbol(decodeString(symRes.value?.result));
+    }
+    if (decRes.status === 'fulfilled') {
+      const result = decRes.value?.result;
+      if (result && result !== '0x') {
+        const d = parseInt(result, 16);
+        if (Number.isFinite(d) && d >= 0 && d <= 36) decimals = d;
+      }
     }
   } catch (_) {}
 
-  // CoinGecko fallback for symbol
-  if (!symbol) {
+  // GeckoTerminal fallback — covers DEX-traded ERC-20s not on the main CoinGecko list.
+  // Also returns decimals, which is critical for tokens whose decimals() reverts.
+  if (!symbol || decimals == null) {
     try {
-      const res  = await fetchWithTimeout(
-        `https://api.coingecko.com/api/v3/coins/ethereum/contract/${encodeURIComponent(key)}`, {}, 8000);
-      const data = await res.json();
-      symbol = data?.symbol?.toUpperCase?.() || null;
+      const res = await fetchWithTimeout(
+        `https://api.geckoterminal.com/api/v2/networks/eth/tokens/${encodeURIComponent(key)}`, {}, 8000);
+      if (res.ok) {
+        const data  = await res.json();
+        const attrs = data?.data?.attributes;
+        if (!symbol)      symbol   = cleanSymbol(attrs?.symbol);
+        if (decimals == null && Number.isFinite(attrs?.decimals)
+            && attrs.decimals >= 0 && attrs.decimals <= 36) {
+          decimals = attrs.decimals;
+        }
+      }
     } catch (_) {}
   }
 
-  const meta = { symbol: symbol || trunc(addr), decimals, resolved: !!symbol };
+  // CoinGecko fallback for symbol AND decimals (detail_platforms.ethereum.decimal_place)
+  if (!symbol || decimals == null) {
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.coingecko.com/api/v3/coins/ethereum/contract/${encodeURIComponent(key)}`, {}, 8000);
+      if (res.ok) {
+        const data = await res.json();
+        if (!symbol) symbol = cleanSymbol(data?.symbol);
+        const dp = data?.detail_platforms?.ethereum?.decimal_place;
+        if (decimals == null && Number.isFinite(dp) && dp >= 0 && dp <= 36) decimals = dp;
+      }
+    } catch (_) {}
+  }
+
+  // Last-resort decimals default. 18 is the ERC-20 norm, but if we got nothing
+  // for an unknown token the displayed amount may be off — the symbol will
+  // also be unresolved, so the card already shows "???" for clarity.
+  if (decimals == null) decimals = 18;
+
+  const meta = {
+    symbol:   symbol ? symbol.toUpperCase() : trunc(addr),
+    decimals,
+    resolved: !!symbol,
+  };
   ethTokenMetaCache[key] = meta;
   return meta;
 }
@@ -725,11 +872,15 @@ async function parseEthTx(hash) {
   // Platform from tx.to
   let platform = ETH_PLATFORMS[toAddr] || null;
 
-  // USD value
-  const STABLE_SYMS = new Set(['USDC', 'USDT', 'DAI', 'FRAX', 'USDe']);
+  // USD value — match by contract address (ETH_STABLE_ADDRS) so a scam token
+  // can't impersonate "USDC" via spoofed metadata and trick us into quoting
+  // its delta as the USD value.
   let usdValue = null;
   for (const c of tokenChanges) {
-    if (STABLE_SYMS.has(c.symbol)) { usdValue = Math.abs(c.delta); break; }
+    if (ETH_STABLE_ADDRS.has(String(c.mint).toLowerCase())) {
+      usdValue = Math.abs(c.delta);
+      break;
+    }
   }
   if (usdValue === null && Math.abs(nativeDelta) > 0.00001) {
     try {
@@ -1002,38 +1153,40 @@ function renderConfirm() {
   const native = nativeSymbol || (chain === 'ethereum' ? 'ETH' : 'SOL');
   const showP = document.getElementById('tog-platform').checked;
 
+  // Symbols ultimately come from external token APIs / on-chain string()
+  // decoding, so all symbol fields are escHtml'd before innerHTML insertion.
   let html = '';
 
-  html += row('Type', `<span class="badge badge-${type.toLowerCase()}">${type}</span>`);
-  html += row('Date', date);
+  html += row('Type', `<span class="badge badge-${type.toLowerCase()}">${escHtml(type)}</span>`);
+  html += row('Date', escHtml(date));
 
   if (type === 'SWAP') {
     const dec = tokenChanges.find(c => c.delta < 0);
     const inc = tokenChanges.find(c => c.delta > 0);
-    if (dec) html += row('Sold',     `<span style="color:#ef4444">−${fmtAmt(dec.delta)} ${dec.symbol}</span>`);
-    if (inc) html += row('Received', `<span style="color:#22c55e">+${fmtAmt(inc.delta)} ${inc.symbol}</span>`);
+    if (dec) html += row('Sold',     `<span style="color:#ef4444">−${fmtAmt(dec.delta)} ${escHtml(dec.symbol)}</span>`);
+    if (inc) html += row('Received', `<span style="color:#22c55e">+${fmtAmt(inc.delta)} ${escHtml(inc.symbol)}</span>`);
   } else {
     tokenChanges.forEach(tc => {
       const sign  = tc.delta > 0 ? '+' : '−';
       const color = tc.delta > 0 ? '#22c55e' : '#ef4444';
-      html += row('Token', `<span style="color:${color}">${sign}${fmtAmt(tc.delta)} ${tc.symbol}</span>`);
+      html += row('Token', `<span style="color:${color}">${sign}${fmtAmt(tc.delta)} ${escHtml(tc.symbol)}</span>`);
     });
     if (tokenChanges.length === 0 && Math.abs(solDelta) > 0.000001) {
       const sign  = solDelta > 0 ? '+' : '−';
       const color = solDelta > 0 ? '#22c55e' : '#ef4444';
-      html += row(native, `<span style="color:${color}">${sign}${fmtAmt(solDelta)} ${native}</span>`);
+      html += row(escHtml(native), `<span style="color:${color}">${sign}${fmtAmt(solDelta)} ${escHtml(native)}</span>`);
     }
   }
 
 
   if (txData.usdValue != null) {
-    html += row('USD Value', `<span style="color:#888">≈ ${fmtUsd(txData.usdValue)}</span>`);
+    html += row('USD Value', `<span style="color:#888">≈ ${escHtml(fmtUsd(txData.usdValue))}</span>`);
   }
 
   const platRow = document.getElementById('tog-platform-row');
   if (platform) {
     platRow.style.display = '';
-    if (showP) html += row('Platform', platform);
+    if (showP) html += row('Platform', escHtml(platform));
   } else {
     platRow.style.display = 'none';
   }
@@ -1314,18 +1467,23 @@ function getCardPayload() {
   const showP   = document.getElementById('tog-platform').checked;
   const showUsd = document.getElementById('tog-usd').checked;
 
+  // All renderers below splice these values into HTML via template literals,
+  // so any field that could carry untrusted text (token symbols from external
+  // APIs in particular, but also platform / date / wallet for defence in depth)
+  // is HTML-escaped here at the single boundary.
   let primary = null, secondary = null;
 
   if (type === 'SWAP') {
     const dec = tokenChanges.find(c => c.delta < 0);
     const inc = tokenChanges.find(c => c.delta > 0);
-    if (dec) primary   = { symbol: cardSym(dec), amount: fmtAmt(Math.abs(dec.delta)) };
-    if (inc) secondary = { symbol: cardSym(inc), amount: fmtAmt(inc.delta) };
+    if (dec) primary   = { symbol: escHtml(cardSym(dec)), amount: fmtAmt(Math.abs(dec.delta)) };
+    if (inc) secondary = { symbol: escHtml(cardSym(inc)), amount: fmtAmt(inc.delta) };
   } else if (tokenChanges.length > 0) {
     const t = tokenChanges[0];
-    primary = { symbol: cardSym(t), amount: fmtAmt(Math.abs(t.delta)) };
+    primary = { symbol: escHtml(cardSym(t)), amount: fmtAmt(Math.abs(t.delta)) };
   } else if (Math.abs(solDelta) > 0.000001) {
-    primary = { symbol: nativeSymbol || (chain === 'ethereum' ? 'ETH' : 'SOL'), amount: fmtAmt(Math.abs(solDelta)) };
+    const nat = nativeSymbol || (chain === 'ethereum' ? 'ETH' : 'SOL');
+    primary = { symbol: escHtml(nat), amount: fmtAmt(Math.abs(solDelta)) };
   }
 
   const amtColor = (type === 'BUY' || type === 'RECEIVE' || type === 'STAKE') ? 'green'
@@ -1333,16 +1491,17 @@ function getCardPayload() {
                  : 'white';
 
   return {
-    type, date,
+    type:     escHtml(type),
+    date:     escHtml(date),
     wallet:   null,
-    platform: showP ? platform : null,
+    platform: (showP && platform) ? escHtml(platform) : null,
     primary, secondary,
     amtColor,
-    usdValue: (showUsd && usdValue != null) ? fmtUsd(usdValue) : null,
+    usdValue: (showUsd && usdValue != null) ? escHtml(fmtUsd(usdValue)) : null,
     chain:        chain        || 'solana',
     chainLabel:   chain === 'ethereum' ? 'Ethereum' : 'Solana',
     chainUpper:   chain === 'ethereum' ? 'ETHEREUM' : 'SOLANA',
-    nativeSymbol: nativeSymbol || (chain === 'ethereum' ? 'ETH' : 'SOL'),
+    nativeSymbol: escHtml(nativeSymbol || (chain === 'ethereum' ? 'ETH' : 'SOL')),
   };
 }
 
