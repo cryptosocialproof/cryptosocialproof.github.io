@@ -1422,9 +1422,8 @@ function initPreviewInteraction() {
   }, { passive: false });
 }
 
-function handlePhotoUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+function loadPhotoFromFile(file, label) {
+  if (!file || !file.type.startsWith('image/')) return;
   const reader = new FileReader();
   reader.onload = ev => {
     photoDataUrl = ev.target.result;
@@ -1434,7 +1433,7 @@ function handlePhotoUpload(e) {
       photoNaturalH = probe.naturalHeight;
       const area = document.getElementById('photo-drop-area');
       area.classList.add('has-photo');
-      document.getElementById('photo-drop-text').textContent = file.name;
+      document.getElementById('photo-drop-text').textContent = label || file.name || 'Photo loaded';
       photoZoom = 1; photoPanX = 0; photoPanY = 0;
       updateZoomIndicator();
       renderCardPreview();
@@ -1443,6 +1442,65 @@ function handlePhotoUpload(e) {
   };
   reader.readAsDataURL(file);
 }
+
+function handlePhotoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadPhotoFromFile(file);
+}
+
+// Drag-and-drop on the photo drop area
+(function initPhotoDragDrop() {
+  // Wait for DOM ready
+  function setup() {
+    const area = document.getElementById('photo-drop-area');
+    if (!area) return;
+
+    area.addEventListener('dragenter', e => {
+      e.preventDefault();
+      area.classList.add('drag-over');
+    });
+    area.addEventListener('dragover', e => {
+      e.preventDefault();
+      area.classList.add('drag-over');
+    });
+    area.addEventListener('dragleave', e => {
+      // Only remove if leaving the area entirely (not a child element)
+      if (!area.contains(e.relatedTarget)) {
+        area.classList.remove('drag-over');
+      }
+    });
+    area.addEventListener('drop', e => {
+      e.preventDefault();
+      area.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) loadPhotoFromFile(file);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
+
+// Clipboard paste — active whenever the Photo theme upload area is visible
+document.addEventListener('paste', e => {
+  const wrap = document.getElementById('photo-upload-wrap');
+  if (!wrap || wrap.classList.contains('hidden')) return;
+  const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        loadPhotoFromFile(file, 'Pasted image');
+        e.preventDefault();
+      }
+      break;
+    }
+  }
+});
 
 function selectSize(s) {
   selSize = s;

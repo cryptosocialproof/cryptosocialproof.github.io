@@ -687,6 +687,7 @@ body {
 .photo-drop-text { font-size: 12px; color: #9ca3af; font-weight: 500; }
 .photo-drop-area.has-photo { border-color: #6366f1; background: #eef2ff; }
 .photo-drop-area.has-photo .photo-drop-text { color: #6366f1; }
+.photo-drop-area.drag-over { border-color: #6366f1; background: #eef2ff; border-style: solid; }
 
 /* ---- Theme: Neon ---- */
 .t-neon {
